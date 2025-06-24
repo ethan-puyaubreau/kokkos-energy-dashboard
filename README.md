@@ -105,10 +105,3 @@ You can modify:
 - `init-db/init.sql` - Database structure
 
 After modification, simply run `./setup.sh <name>` to apply changes.
-
-## Tips
-
-- Use descriptive prefixes for your output files
-- Data persists between restarts
-- Dashboard automatically adapts to your new data
-- All parameters are optimized for energy analysis
