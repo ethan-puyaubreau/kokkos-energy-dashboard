@@ -30,9 +30,9 @@ This command will:
 ### Expected output file format
 
 The script looks for these output files in the current directory:
-- `<prefix>_power.csv` - Power consumption data output
-- `<prefix>_kernels.csv` - Kernel information output  
-- `<prefix>_kernel_energy.csv` - Energy consumption per kernel output
+- `<prefix>_power.csv` - Power consumption data over time (with device info)
+- `<prefix>_kernels.csv` - Complete kernel execution and energy information  
+- `<prefix>_regions.csv` - Analysis regions data
 
 ## Dashboard Access
 
@@ -44,11 +44,13 @@ Once setup is complete:
 
 The "Energy Analysis Dashboard" is automatically available with:
 - Power consumption over time chart
-- CPU/GPU distribution pie chart
-- Duration/energy scatter plot
-- Kernel efficiency table
-- Top 10 most consuming kernels
-- Quick metrics
+- CPU/GPU energy distribution pie chart
+- Duration/energy scatter plot for kernel efficiency
+- Kernel performance efficiency table
+- Top 10 most energy-consuming kernels
+- Host vs Device performance comparison
+- Execution space statistics (OpenMP vs Cuda)
+- Quick summary metrics
 
 ## Project Structure
 

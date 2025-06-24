@@ -7,7 +7,10 @@ set -e
 if [ -z "$1" ]; then
   echo "Usage: ./setup.sh <output_files_prefix>"
   echo "Example: ./setup.sh my_experiment_run1"
-  echo "This will look for: my_experiment_run1_power.csv, my_experiment_run1_kernels.csv, my_experiment_run1_kernel_energy.csv"
+  echo "This will look for:"
+  echo "  - my_experiment_run1_power.csv"
+  echo "  - my_experiment_run1_kernels.csv"
+  echo "  - my_experiment_run1_regions.csv"
   exit 1
 fi
 
@@ -16,15 +19,15 @@ PREFIX=$1
 # Expected source file names
 POWER_FILE="${PREFIX}_power.csv"
 KERNELS_FILE="${PREFIX}_kernels.csv"
-ENERGY_FILE="${PREFIX}_kernel_energy.csv"
+REGIONS_FILE="${PREFIX}_regions.csv"
 
 # Check that source files exist
-if [ ! -f "$POWER_FILE" ] || [ ! -f "$KERNELS_FILE" ] || [ ! -f "$ENERGY_FILE" ]; then
+if [ ! -f "$POWER_FILE" ] || [ ! -f "$KERNELS_FILE" ] || [ ! -f "$REGIONS_FILE" ]; then
   echo "Error: One or more output files are missing."
   echo "Check that the following output files exist:"
   echo "- $POWER_FILE"
   echo "- $KERNELS_FILE"
-  echo "- $ENERGY_FILE"
+  echo "- $REGIONS_FILE"
   exit 1
 fi
 
@@ -47,7 +50,7 @@ echo "Copying output data files with standardized names..."
 # that the init.sql script can use
 cp "$POWER_FILE" "data/power.csv"
 cp "$KERNELS_FILE" "data/kernels.csv"
-cp "$ENERGY_FILE" "data/kernel_energy.csv"
+cp "$REGIONS_FILE" "data/regions.csv"
 
 echo "Starting PostgreSQL database and Grafana via Docker Compose..."
 # Start services in detached mode (-d)

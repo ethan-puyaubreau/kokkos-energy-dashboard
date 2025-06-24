@@ -184,7 +184,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  CASE \n    WHEN name LIKE '%cpu%' THEN 'CPU'\n    WHEN name LIKE '%gpu%' THEN 'GPU'\n    ELSE 'Autre'\n  END AS \"Type\",\n  SUM(total_energy_joules) AS \"Total Energy (J)\"\nFROM kernel_energy\nWHERE total_energy_joules > 0\nGROUP BY \n  CASE \n    WHEN name LIKE '%cpu%' THEN 'CPU'\n    WHEN name LIKE '%gpu%' THEN 'GPU'\n    ELSE 'Autre'\n  END;",
+          "rawSql": "SELECT\n  CASE \n    WHEN execution_space = 'Cuda' THEN 'GPU'\n    WHEN execution_space = 'OpenMP' THEN 'CPU'\n    ELSE execution_space\n  END AS \"Type\",\n  SUM(energy_joules) AS \"Total Energy (J)\"\nFROM kernels_info\nWHERE energy_joules > 0\nGROUP BY \n  CASE \n    WHEN execution_space = 'Cuda' THEN 'GPU'\n    WHEN execution_space = 'OpenMP' THEN 'CPU'\n    ELSE execution_space\n  END;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -286,7 +286,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  duration_ms AS \"Duration (ms)\",\n  total_energy_joules AS \"Energy Used (J)\",\n  LEFT(name, 25) AS \"metric\"\nFROM kernel_energy\nWHERE duration_ms > 0 AND total_energy_joules > 0;",
+          "rawSql": "SELECT\n  duration_ms AS \"Duration (ms)\",\n  energy_joules AS \"Energy Used (J)\",\n  LEFT(name, 25) AS \"metric\"\nFROM kernels_info\nWHERE duration_ms > 0 AND energy_joules > 0;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -362,7 +362,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT SUM(total_energy_joules) AS \"Total Energy (J)\" \nFROM kernel_energy;",
+          "rawSql": "SELECT SUM(energy_joules) AS \"Total Energy (J)\" \nFROM kernels_info;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -420,7 +420,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT COUNT(*) AS \"Number of Kernels\" \nFROM kernel_energy;",
+          "rawSql": "SELECT COUNT(*) AS \"Number of Kernels\" \nFROM kernels_info;",
           "refId": "C",
           "sql": {
             "columns": [
@@ -449,7 +449,7 @@
           "format": "table",
           "hide": false,
           "rawQuery": true,
-          "rawSql": "SELECT ROUND((SUM(duration_ms) / 1000.0)::numeric, 1) AS \"Total Duration (s)\" \nFROM kernel_energy;",
+          "rawSql": "SELECT ROUND((SUM(duration_ms) / 1000.0)::numeric, 1) AS \"Total Duration (s)\" \nFROM kernels_info;",
           "refId": "D",
           "sql": {
             "columns": [
@@ -555,7 +555,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  LEFT(name, 40) AS \"Kernel\",\n  total_energy_joules AS \"Energy (J)\"\nFROM kernel_energy\nWHERE total_energy_joules > 0\nORDER BY total_energy_joules DESC\nLIMIT 10;",
+          "rawSql": "SELECT\n  LEFT(name, 40) AS \"Kernel\",\n  energy_joules AS \"Energy (J)\"\nFROM kernels_info\nWHERE energy_joules > 0\nORDER BY energy_joules DESC\nLIMIT 10;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -651,7 +651,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  name AS \"Kernel\",\n  duration_ms AS \"Time (ms)\",\n  total_energy_joules AS \"Energy (J)\",\n  ROUND((total_energy_joules / (duration_ms / 1000.0))::numeric, 4) AS \"Efficiency (J/s)\",\n  average_power_watts AS \"Mean Power (W)\"\nFROM kernel_energy\nWHERE duration_ms > 0 AND total_energy_joules > 0\nORDER BY \"Efficiency (J/s)\" DESC\nLIMIT 15;",
+          "rawSql": "SELECT\n  name AS \"Kernel\",\n  duration_ms AS \"Time (ms)\",\n  energy_joules AS \"Energy (J)\",\n  ROUND((energy_joules / (duration_ms / 1000.0))::numeric, 4) AS \"Efficiency (J/s)\",\n  average_power_watts AS \"Mean Power (W)\"\nFROM kernels_info\nWHERE duration_ms > 0 AND energy_joules > 0\nORDER BY \"Efficiency (J/s)\" DESC\nLIMIT 15;",
           "refId": "A",
           "sql": {
             "columns": [
