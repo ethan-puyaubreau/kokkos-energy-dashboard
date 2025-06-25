@@ -26,6 +26,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "bepxmpopbv668b"
       },
+      "description": "Red Limit is 35W, defining a GPU power limit in this case",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -49,19 +50,22 @@
             },
             "insertNulls": false,
             "lineInterpolation": "linear",
+            "lineStyle": {
+              "fill": "solid"
+            },
             "lineWidth": 1,
             "pointSize": 5,
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
+            "showPoints": "always",
             "spanNulls": false,
             "stacking": {
               "group": "A",
               "mode": "none"
             },
             "thresholdsStyle": {
-              "mode": "off"
+              "mode": "dashed"
             }
           },
           "mappings": [],
@@ -73,16 +77,17 @@
               },
               {
                 "color": "red",
-                "value": 80
+                "value": 35
               }
             ]
-          }
+          },
+          "unit": "watt"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 10,
-        "w": 18,
+        "h": 11,
+        "w": 24,
         "x": 0,
         "y": 0
       },
@@ -90,13 +95,13 @@
       "options": {
         "legend": {
           "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
+          "displayMode": "table",
+          "placement": "right",
           "showLegend": true
         },
         "tooltip": {
           "hideZeros": false,
-          "mode": "single",
+          "mode": "multi",
           "sort": "none"
         }
       },
@@ -104,9 +109,9 @@
       "targets": [
         {
           "editorMode": "code",
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT\n  to_timestamp(timestamp_ms / 1000.0) AS \"time\",\n  power_watts AS \"Power (W)\"\nFROM power_over_time\nWHERE timestamp_ms / 1000.0 BETWEEN $__unixEpochFrom() AND $__unixEpochTo()\nORDER BY timestamp_ms;",
+          "rawSql": "SELECT \n    TO_TIMESTAMP(p.timestamp_ms / 1000.0) AS time,\n    p.power_watts,\n    COALESCE(k.name, 'Unknown') AS kernel_name\nFROM power_over_time p\nLEFT JOIN kernels_info k ON (\n    p.device_id = k.device_id \n    AND p.timestamp_ms >= k.start_time_ms \n    AND p.timestamp_ms <= k.end_time_ms\n)\nORDER BY p.timestamp_ms, kernel_name;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -127,7 +132,7 @@
           }
         }
       ],
-      "title": "Power",
+      "title": "Power over Time",
       "type": "timeseries"
     },
     {
@@ -138,107 +143,14 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
+            "mode": "thresholds"
           },
           "custom": {
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            }
-          },
-          "mappings": []
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 10,
-        "w": 6,
-        "x": 18,
-        "y": 0
-      },
-      "id": 3,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "pieType": "pie",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.0.2",
-      "targets": [
-        {
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  CASE \n    WHEN execution_space = 'Cuda' THEN 'GPU'\n    WHEN execution_space = 'OpenMP' THEN 'CPU'\n    ELSE execution_space\n  END AS \"Type\",\n  SUM(energy_joules) AS \"Total Energy (J)\"\nFROM kernels_info\nWHERE energy_joules > 0\nGROUP BY \n  CASE \n    WHEN execution_space = 'Cuda' THEN 'GPU'\n    WHEN execution_space = 'OpenMP' THEN 'CPU'\n    ELSE execution_space\n  END;",
-          "refId": "A",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
-        }
-      ],
-      "title": "Total Energy",
-      "type": "piechart"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "bepxmpopbv668b"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "fillOpacity": 50,
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
             },
-            "pointShape": "circle",
-            "pointSize": {
-              "fixed": 5
-            },
-            "pointStrokeWidth": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "show": "points"
+            "inspect": false
           },
           "mappings": [],
           "thresholds": {
@@ -254,31 +166,81 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Kernel"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 238
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Energy"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "joule"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Mean Power"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "watt"
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 10
+        "y": 11
       },
-      "id": 6,
+      "id": 4,
       "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
         },
-        "mapping": "auto",
-        "series": [
-          {}
-        ],
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Energy (J)"
+          }
+        ]
       },
       "pluginVersion": "12.0.2",
       "targets": [
@@ -286,7 +248,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  duration_ms AS \"Duration (ms)\",\n  energy_joules AS \"Energy Used (J)\",\n  LEFT(name, 25) AS \"metric\"\nFROM kernels_info\nWHERE duration_ms > 0 AND energy_joules > 0;",
+          "rawSql": "SELECT\n  name AS \"Kernel\",\n  duration_ms AS \"Time\",\n  energy_joules AS \"Energy\",\n  average_power_watts AS \"Mean Power\"\nFROM kernels_info\nWHERE duration_ms > 0 AND energy_joules > 0\nORDER BY \"Energy\" DESC\nLIMIT 15;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -307,8 +269,8 @@
           }
         }
       ],
-      "title": "Test Scatter Plot",
-      "type": "xychart"
+      "title": "Efficiency Table",
+      "type": "table"
     },
     {
       "datasource": {
@@ -336,7 +298,7 @@
         "h": 4,
         "w": 12,
         "x": 12,
-        "y": 10
+        "y": 11
       },
       "id": 5,
       "options": {
@@ -478,6 +440,606 @@
         "type": "grafana-postgresql-datasource",
         "uid": "bepxmpopbv668b"
       },
+      "description": "Data about time and power spent outside of any kernel (e.g. Fence)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Estimated lost energy (J)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "id": 7,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH unknown_measurements AS (\n    SELECT \n        p.timestamp_ms,\n        p.power_watts,\n        CASE \n            WHEN p.timestamp_ms BETWEEN \n                (SELECT MIN(start_time_ms) FROM kernels_info) \n                AND \n                (SELECT MAX(end_time_ms) FROM kernels_info)\n            THEN 20  -- Measurement interval in ms\n            ELSE 20\n        END as measurement_interval_ms\n    FROM power_over_time p\n    LEFT JOIN kernels_info k ON (\n        p.device_id = k.device_id \n        AND p.timestamp_ms >= k.start_time_ms \n        AND p.timestamp_ms <= k.end_time_ms\n    )\n    WHERE k.id IS NULL  -- Only measurements without associated kernel\n)\nSELECT \n    COUNT(*) AS \"Number of measurements\",\n    CAST(AVG(power_watts) AS DECIMAL(10,2)) AS \"Average power (W)\",\n    CAST(SUM(power_watts * measurement_interval_ms / 1000.0) AS DECIMAL(10,3)) AS \"Estimated lost energy (J)\",\n    CAST(COUNT(*) * 20 / 1000.0 AS DECIMAL(10,2)) AS \"Total time (s)\"\nFROM unknown_measurements;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Quick Info - Power Measurement No Kernels",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bepxmpopbv668b"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 50,
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "pointShape": "circle",
+            "pointSize": {
+              "fixed": 5
+            },
+            "pointStrokeWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "show": "points"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 19
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "mapping": "auto",
+        "series": [
+          {}
+        ],
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  duration_ms AS \"Duration (ms)\",\n  energy_joules AS \"Energy Used (J)\",\n  LEFT(name, 25) AS \"metric\"\nFROM kernels_info\nWHERE duration_ms > 0 AND energy_joules > 0;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Test Scatter Plot",
+      "type": "xychart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bepxmpopbv668b"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "GPU Energy Waste (%)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 19
+      },
+      "id": 10,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH energy_analysis AS (\n    SELECT \n        SUM(CASE WHEN k.execution_space = 'Cuda' THEN k.energy_joules ELSE 0 END) AS cuda_energy,\n        SUM(CASE WHEN k.execution_space != 'Cuda' THEN k.energy_joules ELSE 0 END) AS wasted_gpu_energy,\n        SUM(k.energy_joules) AS total_kernel_energy\n    FROM kernels_info k\n)\nSELECT \n    wasted_gpu_energy AS \"GPU Wasted Energy (J)\",\n    cuda_energy AS \"Useful GPU Energy (J)\",\n    CAST(\n        (wasted_gpu_energy * 100.0 / (cuda_energy + wasted_gpu_energy))\n        AS DECIMAL(5,1)\n    ) AS \"GPU Energy Waste (%)\"\nFROM energy_analysis;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "New panel",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bepxmpopbv668b"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [],
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 12,
+        "y": 24
+      },
+      "id": 3,
+      "options": {
+        "displayLabels": [
+          "value",
+          "name"
+        ],
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "values": [
+            "percent"
+          ]
+        },
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Duration$/",
+          "values": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH kernel_stats AS (\n    SELECT \n        execution_space AS category,\n        SUM(duration_ms) AS duration_ms\n    FROM kernels_info\n    GROUP BY execution_space\n),\nunknown_stats AS (\n    SELECT \n        'Outside Kernel' AS category,\n        CAST(COUNT(*) * 20 AS BIGINT) AS duration_ms  -- 20ms par mesure\n    FROM power_over_time p\n    LEFT JOIN kernels_info k ON (\n        p.device_id = k.device_id \n        AND p.timestamp_ms >= k.start_time_ms \n        AND p.timestamp_ms <= k.end_time_ms\n    )\n    WHERE k.id IS NULL\n),\ncombined_stats AS (\n    SELECT category, duration_ms FROM kernel_stats\n    UNION ALL\n    SELECT category, duration_ms FROM unknown_stats\n)\nSELECT \n    category AS \"Execution Space\",\n    duration_ms AS \"Duration\"\nFROM combined_stats\nORDER BY \"Duration\" DESC;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Kernel Distribution (Time Based)",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bepxmpopbv668b"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [],
+          "unit": "joule"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 18,
+        "y": 24
+      },
+      "id": 8,
+      "options": {
+        "displayLabels": [
+          "value",
+          "name"
+        ],
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true,
+          "values": [
+            "percent"
+          ]
+        },
+        "pieType": "donut",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Energy$/",
+          "values": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH kernel_stats AS (\n    SELECT \n        execution_space AS category,\n        SUM(energy_joules) AS energy_joules\n    FROM kernels_info\n    GROUP BY execution_space\n),\nunknown_stats AS (\n    SELECT \n        'Outside Kernel' AS category,\n        CAST(SUM(p.power_watts * 20 / 1000.0) AS DECIMAL(10,3)) AS energy_joules  -- 20ms par mesure\n    FROM power_over_time p\n    LEFT JOIN kernels_info k ON (\n        p.device_id = k.device_id \n        AND p.timestamp_ms >= k.start_time_ms \n        AND p.timestamp_ms <= k.end_time_ms\n    )\n    WHERE k.id IS NULL\n),\ncombined_stats AS (\n    SELECT category, energy_joules FROM kernel_stats\n    UNION ALL\n    SELECT category, energy_joules FROM unknown_stats\n)\nSELECT \n    category AS \"Execution Space\",\n    energy_joules AS \"Energy\"\nFROM combined_stats\nORDER BY \"Energy\" DESC;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Kernel Distribution (Energy Based)",
+      "type": "piechart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bepxmpopbv668b"
+      },
+      "description": "Breakdown of energy consumption with data source quality and error estimation",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Energy (J)"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 103
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Data Quality"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 185
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Energy Category"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 192
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Est. Error (J)"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 125
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 12,
+        "x": 0,
+        "y": 27
+      },
+      "id": 9,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH energy_breakdown AS (\n    -- CUDA energy (source directe - la plus fiable)\n    SELECT \n        'CUDA Kernels' AS category,\n        SUM(k.energy_joules) AS energy_joules,\n        'Direct' AS source_type\n    FROM kernels_info k\n    WHERE k.execution_space = 'Cuda'\n    \n    UNION ALL\n    \n    -- Non-CUDA kernels energy (source directe - fiable)\n    SELECT \n        'Non-CUDA Kernels' AS category,\n        SUM(k.energy_joules) AS energy_joules,\n        'Direct' AS source_type\n    FROM kernels_info k\n    WHERE k.execution_space != 'Cuda'\n    \n    UNION ALL\n    \n    -- Outside kernels (approximation nécessaire)\n    SELECT \n        'Outside Kernels' AS category,\n        CAST(SUM(p.power_watts * 20 / 1000.0) AS DECIMAL(10,3)) AS energy_joules,\n        'Approximated (±20ms)' AS source_type\n    FROM power_over_time p\n    LEFT JOIN kernels_info k ON (\n        p.device_id = k.device_id \n        AND p.timestamp_ms >= k.start_time_ms \n        AND p.timestamp_ms <= k.end_time_ms\n    )\n    WHERE k.id IS NULL\n)\nSELECT \n    category AS \"Energy Category\",\n    energy_joules AS \"Energy (J)\",\n    source_type AS \"Data Quality\",\n    -- Calcul de la marge d'erreur\n    CASE \n        WHEN source_type = 'Approximated (±20ms)' \n        THEN CAST(energy_joules * 0.02 AS DECIMAL(8,3))  -- ~2% d'erreur estimée\n        ELSE 0 \n    END AS \"Est. Error (J)\"\nFROM energy_breakdown\nORDER BY \"Energy (J)\" DESC;",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Energy Data Quality Analysis",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bepxmpopbv668b"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -523,8 +1085,8 @@
       "gridPos": {
         "h": 9,
         "w": 12,
-        "x": 12,
-        "y": 14
+        "x": 0,
+        "y": 33
       },
       "id": 2,
       "options": {
@@ -578,102 +1140,6 @@
       ],
       "title": "Top 10 most used Kernels",
       "type": "barchart"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "bepxmpopbv668b"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "align": "auto",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Kernel"
-            },
-            "properties": [
-              {
-                "id": "custom.width",
-                "value": 279
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 18
-      },
-      "id": 4,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
-        },
-        "showHeader": true,
-        "sortBy": []
-      },
-      "pluginVersion": "12.0.2",
-      "targets": [
-        {
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  name AS \"Kernel\",\n  duration_ms AS \"Time (ms)\",\n  energy_joules AS \"Energy (J)\",\n  ROUND((energy_joules / (duration_ms / 1000.0))::numeric, 4) AS \"Efficiency (J/s)\",\n  average_power_watts AS \"Mean Power (W)\"\nFROM kernels_info\nWHERE duration_ms > 0 AND energy_joules > 0\nORDER BY \"Efficiency (J/s)\" DESC\nLIMIT 15;",
-          "refId": "A",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          }
-        }
-      ],
-      "title": "Efficiency",
-      "type": "table"
     }
   ],
   "preload": false,
@@ -687,12 +1153,12 @@
     "list": []
   },
   "time": {
-    "from": "2025-06-24T14:39:44.713Z",
-    "to": "2025-06-24T14:39:54.686Z"
+    "from": "2025-06-25T14:04:36.514Z",
+    "to": "2025-06-25T14:04:43.208Z"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "Energy Analysis Dashboard",
   "uid": "energy-analysis-main",
-  "version": 2
+  "version": 8
 }
