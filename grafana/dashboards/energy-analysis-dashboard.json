@@ -727,7 +727,7 @@
           }
         }
       ],
-      "title": "New panel",
+      "title": "GPU Energy Waste Analysis",
       "type": "stat"
     },
     {
@@ -1160,5 +1160,5 @@
   "timezone": "browser",
   "title": "Energy Analysis Dashboard",
   "uid": "energy-analysis-main",
-  "version": 8
+  "version": 10
 }
