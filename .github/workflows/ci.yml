@@ -122,8 +122,10 @@ jobs:
           (1750798932394, 0, 'GPU_0', 15.5);
 
           INSERT INTO kernels_info VALUES
-          (0, 'TestKernel', 'For', 'Cuda', 0, 1750798932374, 1750798932394, 20, 0.31, 15.5),
-          (1, 'TestKernelCPU', 'For', 'Host', 0, 1750798932400, 1750798932420, 20, 0.2, 10.0);
+          (0, 'TestKernel', 'For', 'Cuda', 0, \
+          1750798932374, 1750798932394, 20, 0.31, 15.5),
+          (1, 'TestKernelCPU', 'For', 'Host', 0, \
+          1750798932400, 1750798932420, 20, 0.2, 10.0);
           "
 
       - name: Test key SQL queries
