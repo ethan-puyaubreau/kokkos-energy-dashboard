@@ -43,10 +43,10 @@ jobs:
 
           # Create test kernels data (with prefix)
           echo "id,name,type,execution_space,device_id,start_time_ms,\
-end_time_ms,duration_ms,energy_joules,average_power_watts" \
+          end_time_ms,duration_ms,energy_joules,average_power_watts" \
             > test_experiment_kernels.csv
           echo "0,TestKernel,For,Cuda,0,1750798932374,1750798932394,\
-20,0.31,15.5" >> test_experiment_kernels.csv
+          20,0.31,15.5" >> test_experiment_kernels.csv
 
           # Create test regions data (with prefix)
           echo "id,name,start_time_ms,end_time_ms,duration_ms" \
