@@ -662,7 +662,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "GPU Energy Waste (%)"
+              "options": "Energy Waste (%)"
             },
             "properties": [
               {
@@ -706,7 +706,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH energy_analysis AS (\n    SELECT \n        SUM(CASE WHEN k.execution_space = 'Cuda' THEN k.energy_joules ELSE 0 END) AS cuda_energy,\n        SUM(CASE WHEN k.execution_space != 'Cuda' THEN k.energy_joules ELSE 0 END) AS wasted_gpu_energy,\n        SUM(k.energy_joules) AS total_kernel_energy\n    FROM kernels_info k\n)\nSELECT \n    wasted_gpu_energy AS \"GPU Wasted Energy (J)\",\n    cuda_energy AS \"Useful GPU Energy (J)\",\n    CAST(\n        (wasted_gpu_energy * 100.0 / (cuda_energy + wasted_gpu_energy))\n        AS DECIMAL(5,1)\n    ) AS \"GPU Energy Waste (%)\"\nFROM energy_analysis;",
+          "rawSql": "WITH energy_analysis AS (\n    SELECT \n        SUM(CASE WHEN k.execution_space = 'Cuda' THEN k.energy_joules ELSE 0 END) AS cuda_energy,\n        SUM(CASE WHEN k.execution_space != 'Cuda' THEN k.energy_joules ELSE 0 END) AS non_cuda_waste,\n        -- Ajout de l'énergie outside kernels\n        (SELECT CAST(SUM(p.power_watts * 20 / 1000.0) AS DECIMAL(10,3))\n         FROM power_over_time p\n         LEFT JOIN kernels_info k ON (\n             p.device_id = k.device_id \n             AND p.timestamp_ms >= k.start_time_ms \n             AND p.timestamp_ms <= k.end_time_ms\n         )\n         WHERE k.id IS NULL) AS outside_kernel_waste,\n        SUM(k.energy_joules) AS total_kernel_energy\n    FROM kernels_info k\n)\nSELECT \n    (non_cuda_waste + outside_kernel_waste) AS \"GPU Wasted Energy (J)\",\n    cuda_energy AS \"Useful GPU Energy (J)\",\n    CAST(\n        ((non_cuda_waste + outside_kernel_waste) * 100.0 / (cuda_energy + non_cuda_waste + outside_kernel_waste))\n        AS DECIMAL(5,1)\n    ) AS \"Energy Waste (%)\",\n    outside_kernel_waste AS \"Outside Kernels Waste (J)\",\n    non_cuda_waste AS \"Non-CUDA Kernels Waste (J)\"\nFROM energy_analysis;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1011,7 +1011,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "WITH energy_breakdown AS (\n    -- CUDA energy (source directe - la plus fiable)\n    SELECT \n        'CUDA Kernels' AS category,\n        SUM(k.energy_joules) AS energy_joules,\n        'Direct' AS source_type\n    FROM kernels_info k\n    WHERE k.execution_space = 'Cuda'\n    \n    UNION ALL\n    \n    -- Non-CUDA kernels energy (source directe - fiable)\n    SELECT \n        'Non-CUDA Kernels' AS category,\n        SUM(k.energy_joules) AS energy_joules,\n        'Direct' AS source_type\n    FROM kernels_info k\n    WHERE k.execution_space != 'Cuda'\n    \n    UNION ALL\n    \n    -- Outside kernels (approximation nécessaire)\n    SELECT \n        'Outside Kernels' AS category,\n        CAST(SUM(p.power_watts * 20 / 1000.0) AS DECIMAL(10,3)) AS energy_joules,\n        'Approximated (±20ms)' AS source_type\n    FROM power_over_time p\n    LEFT JOIN kernels_info k ON (\n        p.device_id = k.device_id \n        AND p.timestamp_ms >= k.start_time_ms \n        AND p.timestamp_ms <= k.end_time_ms\n    )\n    WHERE k.id IS NULL\n)\nSELECT \n    category AS \"Energy Category\",\n    energy_joules AS \"Energy (J)\",\n    source_type AS \"Data Quality\",\n    -- Calcul de la marge d'erreur\n    CASE \n        WHEN source_type = 'Approximated (±20ms)' \n        THEN CAST(energy_joules * 0.02 AS DECIMAL(8,3))  -- ~2% d'erreur estimée\n        ELSE 0 \n    END AS \"Est. Error (J)\"\nFROM energy_breakdown\nORDER BY \"Energy (J)\" DESC;",
+          "rawSql": "WITH energy_breakdown AS (\n    -- CUDA energy (source directe - la plus fiable)\n    SELECT \n        'CUDA Kernels' AS category,\n        COALESCE(SUM(k.energy_joules), 0) AS energy_joules,\n        'Direct' AS source_type\n    FROM kernels_info k\n    WHERE k.execution_space = 'Cuda'\n    \n    UNION ALL\n    \n    -- Non-CUDA kernels energy (source directe - fiable)\n    SELECT \n        'Non-CUDA Kernels' AS category,\n        COALESCE(SUM(k.energy_joules), 0) AS energy_joules,\n        'Direct' AS source_type\n    FROM kernels_info k\n    WHERE k.execution_space != 'Cuda'\n    \n    UNION ALL\n    \n    -- Outside kernels (approximation nécessaire)\n    SELECT \n        'Outside Kernels' AS category,\n        COALESCE(CAST(SUM(p.power_watts * 20 / 1000.0) AS DECIMAL(10,3)), 0) AS energy_joules,\n        'Approximated (±20ms)' AS source_type\n    FROM power_over_time p\n    LEFT JOIN kernels_info k ON (\n        p.device_id = k.device_id \n        AND p.timestamp_ms >= k.start_time_ms \n        AND p.timestamp_ms <= k.end_time_ms\n    )\n    WHERE k.id IS NULL\n)\nSELECT \n    category AS \"Energy Category\",\n    energy_joules AS \"Energy (J)\",\n    source_type AS \"Data Quality\",\n    -- Calcul de la marge d'erreur\n    CASE \n        WHEN source_type = 'Approximated (±20ms)' \n        THEN CAST(energy_joules * 0.02 AS DECIMAL(8,3))  -- ~2% d'erreur estimée\n        ELSE 0 \n    END AS \"Est. Error (J)\"\nFROM energy_breakdown\nORDER BY \"Energy (J)\" DESC;",
           "refId": "A",
           "sql": {
             "columns": [
@@ -1153,12 +1153,12 @@
     "list": []
   },
   "time": {
-    "from": "2025-06-25T14:04:36.514Z",
-    "to": "2025-06-25T14:04:43.208Z"
+    "from": "2025-06-25T14:26:33.807Z",
+    "to": "2025-06-25T14:26:35.427Z"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "Energy Analysis Dashboard",
   "uid": "energy-analysis-main",
-  "version": 10
+  "version": 4
 }
