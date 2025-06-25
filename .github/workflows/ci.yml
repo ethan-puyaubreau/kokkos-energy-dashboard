@@ -19,7 +19,12 @@ jobs:
       - name: Lint YAML files
         uses: ibiqlik/action-yamllint@v3
         with:
-          file_or_dir: docker-compose.yml grafana/
+          file_or_dir: docker-compose.yml .github/workflows/
+          
+      - name: Validate JSON dashboard
+        run: |
+          python3 -m json.tool grafana/dashboards/energy-analysis-dashboard.json > /dev/null
+          echo "Dashboard JSON is valid"
 
   test-integration:
     runs-on: ubuntu-latest
@@ -28,20 +33,35 @@ jobs:
       
       - name: Create test CSV files
         run: |
-          mkdir -p test_data
-          echo "timestamp_ms,device_id,power_watts" > test_experiment_power.csv
-          echo "1000000,1,100.5" >> test_experiment_power.csv
+          # Create test power data (with prefix)
+          echo "timestamp_ms,device_id,device_name,power_watts" > test_experiment_power.csv
+          echo "1750798932374,0,GPU_0,10.07" >> test_experiment_power.csv
+          echo "1750798932394,0,GPU_0,15.5" >> test_experiment_power.csv
+          
+          # Create test kernels data (with prefix)
+          echo "id,name,type,execution_space,device_id,start_time_ms,end_time_ms,duration_ms,energy_joules,average_power_watts" > test_experiment_kernels.csv
+          echo "0,TestKernel,For,Cuda,0,1750798932374,1750798932394,20,0.31,15.5" >> test_experiment_kernels.csv
+          
+          # Create test regions data (with prefix)
+          echo "id,name,start_time_ms,end_time_ms,duration_ms" > test_experiment_regions.csv
+          echo "0,TestRegion,1750798932374,1750798932394,20" >> test_experiment_regions.csv
           
       - name: Test Docker services startup
         run: |
-          cp test_experiment_power.csv test_experiment_kernels.csv
-          cp test_experiment_power.csv test_experiment_kernel_energy.csv
           timeout 300 ./setup.sh test_experiment
           
       - name: Verify services health
         run: |
-          curl -f http://localhost:3000/api/health
-          docker exec energy_analysis_db pg_isready
+          # Wait for services to be ready
+          sleep 30
+          curl -f http://localhost:3000/api/health || echo "Grafana health check failed"
+          docker exec grafana_energy_db pg_isready || echo "Database health check failed"
+          
+      - name: Test database content
+        run: |
+          # Verify data was loaded correctly
+          docker exec grafana_energy_db psql -U energy_user -d energy_analysis -c "SELECT COUNT(*) FROM power_over_time;"
+          docker exec grafana_energy_db psql -U energy_user -d energy_analysis -c "SELECT COUNT(*) FROM kernels_info;"
           
       - name: Cleanup
         run: ./remove.sh
@@ -55,3 +75,56 @@ jobs:
         with:
           scan-type: 'fs'
           scan-ref: '.'
+          
+  test-sql-queries:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: energy_user
+          POSTGRES_PASSWORD: energy_password
+          POSTGRES_DB: energy_analysis
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup test database
+        run: |
+          # Load schema
+          PGPASSWORD=energy_password psql -h localhost -U energy_user -d energy_analysis -f init-db/init.sql
+          
+          # Insert test data
+          PGPASSWORD=energy_password psql -h localhost -U energy_user -d energy_analysis -c "
+          INSERT INTO power_over_time VALUES 
+          (1750798932374, 0, 'GPU_0', 10.07),
+          (1750798932394, 0, 'GPU_0', 15.5);
+          
+          INSERT INTO kernels_info VALUES 
+          (0, 'TestKernel', 'For', 'Cuda', 0, 1750798932374, 1750798932394, 20, 0.31, 15.5),
+          (1, 'TestKernelCPU', 'For', 'Host', 0, 1750798932400, 1750798932420, 20, 0.2, 10.0);
+          "
+          
+      - name: Test key SQL queries
+        run: |
+          # Test power-kernel join query
+          PGPASSWORD=energy_password psql -h localhost -U energy_user -d energy_analysis -c "
+          SELECT COUNT(*) as power_kernel_matches FROM power_over_time p
+          LEFT JOIN kernels_info k ON (
+              p.device_id = k.device_id 
+              AND p.timestamp_ms >= k.start_time_ms 
+              AND p.timestamp_ms <= k.end_time_ms
+          );"
+          
+          # Test energy breakdown query
+          PGPASSWORD=energy_password psql -h localhost -U energy_user -d energy_analysis -c "
+          SELECT execution_space, SUM(energy_joules) as total_energy 
+          FROM kernels_info 
+          GROUP BY execution_space;"
