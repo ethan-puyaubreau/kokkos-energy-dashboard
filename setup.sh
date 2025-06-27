@@ -20,16 +20,17 @@ PREFIX=$1
 POWER_FILE="${PREFIX}_power.csv"
 KERNELS_FILE="${PREFIX}_kernels.csv"
 REGIONS_FILE="${PREFIX}_regions.csv"
+TEST_FILE="test.csv"
 
 # Check that source files exist
-if [ ! -f "$POWER_FILE" ] || [ ! -f "$KERNELS_FILE" ] || [ ! -f "$REGIONS_FILE" ]; then
-  echo "Error: One or more output files are missing."
-  echo "Check that the following output files exist:"
-  echo "- $POWER_FILE"
-  echo "- $KERNELS_FILE"
-  echo "- $REGIONS_FILE"
-  exit 1
-fi
+#if [ ! -f "$POWER_FILE" ] || [ ! -f "$KERNELS_FILE" ] || [ ! -f "$REGIONS_FILE" ]; then
+#  echo "Error: One or more output files are missing."
+#  echo "Check that the following output files exist:"
+#  echo "- $POWER_FILE"
+#  echo "- $KERNELS_FILE"
+#  echo "- $REGIONS_FILE"
+#  exit 1
+#fi
 
 echo "Cleaning previous environment..."
 
@@ -48,9 +49,12 @@ rm -f data/*
 echo "Copying output data files with standardized names..."
 # Copy output files to 'data' folder with generic names
 # that the init.sql script can use
-cp "$POWER_FILE" "data/power.csv"
-cp "$KERNELS_FILE" "data/kernels.csv"
-cp "$REGIONS_FILE" "data/regions.csv"
+#cp "$POWER_FILE" "data/power.csv"
+#cp "$KERNELS_FILE" "data/kernels.csv"
+#cp "$REGIONS_FILE" "data/regions.csv"
+cp "$TEST_FILE" "data/test.csv"
+cp "power_profile_output_gpu_power.csv" "data/power_profile_output_gpu_power.csv"
+cp "power_profile_output_kernels.csv" "data/power_profile_output_kernels.csv"
 
 echo "Starting PostgreSQL database and Grafana via Docker Compose..."
 # Start services in detached mode (-d)
