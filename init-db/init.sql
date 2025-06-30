@@ -1,28 +1,72 @@
 -- init-db/init.sql
 
--- Création des tables
-CREATE TABLE IF NOT EXISTS stuff (
-    x INT NOT NULL,
-    y INT NOT NULL
+-- Tables for NVML Tool (Power variant)
+CREATE TABLE IF NOT EXISTS nvml_relative (
+    time_relative_ms DECIMAL(12,3) NOT NULL,
+    power_watts DECIMAL(12,6) NOT NULL,
+    energy_relative_joules DECIMAL(18,9) NOT NULL
 );
 
--- Table pour les données de puissance GPU
-CREATE TABLE IF NOT EXISTS gpu_power_profile (
-    timestamp_nanoseconds BIGINT NOT NULL,
-    power_watts DECIMAL(10,3) NOT NULL,
-    device_id INT NOT NULL
+CREATE TABLE IF NOT EXISTS nvml_absolute (
+    timestamp_system_epoch_ms DECIMAL(18,3) NOT NULL,
+    nvml_power_watts DECIMAL(12,6) NOT NULL,
+    nvml_integrated_energy_joules DECIMAL(18,9) NOT NULL
 );
 
--- Table pour les données des kernels
-CREATE TABLE IF NOT EXISTS kernels_profile (
-    kernel_id INT NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    type VARCHAR(50) NOT NULL,
-    start_time_ns BIGINT NOT NULL,
-    end_time_ns BIGINT NOT NULL,
-    duration_ns BIGINT NOT NULL
+CREATE TABLE IF NOT EXISTS nvml_stats (
+    stat_name TEXT NOT NULL,
+    value TEXT NOT NULL
 );
 
-COPY stuff FROM '/csv_data/test.csv' WITH (FORMAT csv, HEADER true);
-COPY gpu_power_profile FROM '/csv_data/power_profile_output_gpu_power.csv' WITH (FORMAT csv, HEADER true);
-COPY kernels_profile FROM '/csv_data/power_profile_output_kernels.csv' WITH (FORMAT csv, HEADER true);
+-- NVML ENERGY TABLES
+CREATE TABLE IF NOT EXISTS nvml_energy_relative (
+    time_relative_ms DECIMAL(12,3) NOT NULL,
+    energy_joules DECIMAL(18,9) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS nvml_energy_absolute (
+    timestamp_system_epoch_ms DECIMAL(18,3) NOT NULL,
+    nvml_energy_joules DECIMAL(18,9) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS nvml_energy_stats (
+    stat_name TEXT NOT NULL,
+    value TEXT NOT NULL
+);
+
+-- VARIORUM TABLES
+CREATE TABLE IF NOT EXISTS variorum_relative (
+    time_relative_ms DECIMAL(12,3) NOT NULL,
+    power_watts DECIMAL(12,6) NOT NULL,
+    energy_relative_joules DECIMAL(18,9) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS variorum_absolute (
+    timestamp_system_epoch_ms DECIMAL(18,3) NOT NULL,
+    variorum_power_watts DECIMAL(12,6) NOT NULL,
+    variorum_integrated_energy_joules DECIMAL(18,9) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS variorum_gpus (
+    timestamp_ms DECIMAL(18,3) NOT NULL,
+    power_watts DECIMAL(12,6) NOT NULL,
+    device_id INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS variorum_kernels (
+    kernel_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    start_time_ms DECIMAL(18,3) NOT NULL,
+    end_time_ms DECIMAL(18,3) NOT NULL,
+    duration_ms DECIMAL(18,3) NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS variorum_stats (
+    stat_name TEXT NOT NULL,
+    value TEXT NOT NULL
+);
+
+-- Table for variorum_series will be created dynamically based on CSV structure
+
+-- COPY commands will be dynamically added by the setup.sh script

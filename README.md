@@ -7,32 +7,30 @@ Complete energy analysis environment with Grafana and PostgreSQL, ready to use w
 
 ### Prerequisites
 - Docker and Docker Compose installed
-- Your energy analysis output CSV files
+- Your energy analysis output CSV files or Kokkos tool ready for benchmarking (see `input/generic_script.sh` for an boilerplate script for easy benchmarking and sorting of results)
 
-### Launch with one command
-
-```bash
-./setup.sh <output_files_prefix>
-```
-
-**Example:**
-```bash
-./setup.sh my_gpu_experiment
-```
-
-This command will:
-1. Find your output CSV files (based on the provided prefix)
-2. Clean the previous environment 
-3. Configure PostgreSQL with your data
-4. Launch Grafana with pre-configured dashboard
-5. Connect everything automatically
-
-### Expected output file format
-
-The script looks for these output files in the current directory:
-- `<prefix>_power.csv` - Power consumption data over time (with device info)
-- `<prefix>_kernels.csv` - Complete kernel execution and energy information  
-- `<prefix>_regions.csv` - Analysis regions data
+### Setup
+1. Clone the repository:
+    ```bash
+    git clone https://github.com/ethan-puyaubreau/kokkos-energy-dashboard.git
+    cd kokkos-energy-dashboard
+    ```
+2. Optional (if you want to use the provided script):
+   - Modify `input/generic_script.sh` to set your Kokkos program command and paths to NVML and Variorum libraries.
+   - Run the script to generate energy data:
+    ```bash
+    ./input/generic_script.sh
+    ```
+3. Start the environment:
+    ```bash
+    ./setup.sh
+    ```
+4. Wait for the setup to complete:
+    - This will input the CSV and .dat files from the `input/` directory into the PostgreSQL database.
+    - Grafana will be configured with the datasource and the "Energy Analysis Dashboard" will be created automatically.
+    - The database will be populated with the energy data from the CSV files.
+5. Access the dashboard:
+    - Open your web browser and go to `http://localhost:3000` to access Grafana.
 
 ## Dashboard Access
 
@@ -42,44 +40,20 @@ Once setup is complete:
 - **Username**: admin
 - **Password**: admin
 
-The "Energy Analysis Dashboard" is automatically available with:
-- Power consumption over time chart
-- CPU/GPU energy distribution pie chart
-- Duration/energy scatter plot for kernel efficiency
-- Kernel performance efficiency table
-- Top 10 most energy-consuming kernels
-- Host vs Device performance comparison
-- Execution space statistics (OpenMP vs Cuda)
-- Quick summary metrics
-
-## Project Structure
-
-```
-.
-├── docker-compose.yml
-├── setup.sh
-├── remove.sh
-├── data/
-├── grafana/
-│   ├── dashboards/
-│   └── provisioning/
-└── init-db/
-    └── init.sql
-```
+The "Energy Analysis Dashboard" is automatically available with some charts and visualizations.
 
 ## Features
 
-### Automatic configuration
-- PostgreSQL database configured
+### Automatic configuration - no manual configuration required
+- Docker Compose setup for easy deployment
+- PostgreSQL database pre-configured (no manual setup required)
 - Grafana datasource automatically connected
 - Dashboard pre-loaded and ready to use
-- No manual configuration required
 
-### Interactive dashboard
+
+### Interactive dashboard with Grafana
 - Multiple complementary visualizations
-- Real-time data exploration
-- Energy performance metrics
-- Modern and intuitive interface
+- Energy performance metrics in a modern and intuitive interface
 
 ## Stop and Clean Environment
 
@@ -93,17 +67,12 @@ docker compose down
 ./remove.sh
 ```
 
+A cleanup script is also available to remove all input files:
+```bash
+./input/clean.sh
+```
+
 The `remove.sh` script performs a complete cleanup:
 - Stops all containers
 - Removes data volumes  
-- Cleans local files
-- Frees disk space
-
-## Customization
-
-You can modify:
-- `grafana/dashboards/energy-analysis-dashboard.json` - Main dashboard
-- `grafana/provisioning/` - Datasource configuration
-- `init-db/init.sql` - Database structure
-
-After modification, simply run `./setup.sh <name>` to apply changes.
+- Cleans temporary files generated during the setup

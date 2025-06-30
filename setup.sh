@@ -1,40 +1,13 @@
 #!/bin/bash
 
-# Stop script if any command fails
 set -e
 
-# Check if a prefix was provided
-if [ -z "$1" ]; then
-  echo "Usage: ./setup.sh <output_files_prefix>"
-  echo "Example: ./setup.sh my_experiment_run1"
-  echo "This will look for:"
-  echo "  - my_experiment_run1_power.csv"
-  echo "  - my_experiment_run1_kernels.csv"
-  echo "  - my_experiment_run1_regions.csv"
-  exit 1
+if [ -f "init-db/init_tmp.sql" ]; then
+  rm -f init-db/init_tmp.sql
 fi
-
-PREFIX=$1
-
-# Expected source file names
-POWER_FILE="${PREFIX}_power.csv"
-KERNELS_FILE="${PREFIX}_kernels.csv"
-REGIONS_FILE="${PREFIX}_regions.csv"
-TEST_FILE="test.csv"
-
-# Check that source files exist
-#if [ ! -f "$POWER_FILE" ] || [ ! -f "$KERNELS_FILE" ] || [ ! -f "$REGIONS_FILE" ]; then
-#  echo "Error: One or more output files are missing."
-#  echo "Check that the following output files exist:"
-#  echo "- $POWER_FILE"
-#  echo "- $KERNELS_FILE"
-#  echo "- $REGIONS_FILE"
-#  exit 1
-#fi
 
 echo "Cleaning previous environment..."
 
-# Stop and remove associated Docker containers
 if docker compose ps -q &>/dev/null; then
   echo "Stopping existing Docker containers..."
   docker compose down -v
@@ -42,23 +15,104 @@ fi
 
 echo "Preparing environment..."
 
-# Create 'data' folder if it doesn't exist and empty it
 mkdir -p data
-rm -f data/*
+rm -rf data/nvml_power
+mkdir -p data/nvml_power
+rm -rf data/nvml_energy
+mkdir -p data/nvml_energy
+rm -rf data/variorum
+mkdir -p data/variorum
 
-echo "Copying output data files with standardized names..."
-# Copy output files to 'data' folder with generic names
-# that the init.sql script can use
-#cp "$POWER_FILE" "data/power.csv"
-#cp "$KERNELS_FILE" "data/kernels.csv"
-#cp "$REGIONS_FILE" "data/regions.csv"
-cp "$TEST_FILE" "data/test.csv"
-cp "power_profile_output_gpu_power.csv" "data/power_profile_output_gpu_power.csv"
-cp "power_profile_output_kernels.csv" "data/power_profile_output_kernels.csv"
+echo "Aggregating data into input files..."
+
+DOCKER_IMAGE_AGG="input:latest"
+docker build -f docker/Dockerfile.agg -t $DOCKER_IMAGE_AGG .
+docker run --rm -v "$PWD/input:/app/input" -v "$PWD/data:/app/data" $DOCKER_IMAGE_AGG
 
 echo "Starting PostgreSQL database and Grafana via Docker Compose..."
-# Start services in detached mode (-d)
+#specify the compose file explicitly
 docker compose up -d
+
+NVML_DIR="data/nvml_power"
+NVML_FILES=("nvml_relative.csv" "nvml_absolute.csv" "nvml_stats.csv")
+ANY_NVML_FOUND=false
+for f in "${NVML_FILES[@]}"; do
+  if [ -f "$NVML_DIR/$f" ]; then
+    ANY_NVML_FOUND=true
+  fi
+
+done
+if [ "$ANY_NVML_FOUND" = false ]; then
+  echo "WARNING: No NVML Power data found in $NVML_DIR." >&2
+fi
+
+NVML_ENERGY_DIR="data/nvml_energy"
+NVML_ENERGY_FILES=("nvml_energy_relative.csv" "nvml_energy_absolute.csv" "nvml_energy_stats.csv")
+ANY_NVML_ENERGY_FOUND=false
+for f in "${NVML_ENERGY_FILES[@]}"; do
+  if [ -f "$NVML_ENERGY_DIR/$f" ]; then
+    ANY_NVML_ENERGY_FOUND=true
+  fi
+done
+if [ "$ANY_NVML_ENERGY_FOUND" = false ]; then
+  echo "WARNING: No NVML Energy data found in $NVML_ENERGY_DIR." >&2
+fi
+
+VARIORUM_DIR="data/variorum"
+VARIORUM_FILES=("variorum_relative.csv" "variorum_absolute.csv" "variorum_gpus.csv" "variorum_kernels.csv" "variorum_stats.csv")
+ANY_VARIORUM_FOUND=false
+for f in "${VARIORUM_FILES[@]}"; do
+  if [ -f "$VARIORUM_DIR/$f" ]; then
+    ANY_VARIORUM_FOUND=true
+  fi
+done
+if [ "$ANY_VARIORUM_FOUND" = false ]; then
+  echo "WARNING: No Variorum data found in $VARIORUM_DIR." >&2
+fi
+
+IMPORT_SQL=""
+for f in "${NVML_FILES[@]}"; do
+  if [ -f "$NVML_DIR/$f" ]; then
+    TABLE_NAME="${f%.csv}"
+    IMPORT_SQL+="\n\\COPY $TABLE_NAME FROM '/csv_data/nvml_power/$f' WITH (FORMAT csv, HEADER true);\n"
+  else
+    echo "WARNING: $f not found, import SQL ignored."
+  fi
+done
+for f in "${NVML_ENERGY_FILES[@]}"; do
+  if [ -f "$NVML_ENERGY_DIR/$f" ]; then
+    TABLE_NAME="${f%.csv}"
+    IMPORT_SQL+="\\COPY $TABLE_NAME FROM '/csv_data/nvml_energy/$f' WITH (FORMAT csv, HEADER true);\n"
+  else
+    echo "WARNING: $f not found, import SQL ignored."
+  fi
+done
+for f in "${VARIORUM_FILES[@]}"; do
+  if [ -f "$VARIORUM_DIR/$f" ]; then
+    TABLE_NAME="${f%.csv}"
+    IMPORT_SQL+="\\COPY $TABLE_NAME FROM '/csv_data/variorum/$f' WITH (FORMAT csv, HEADER true);\n"
+  else
+    echo "WARNING: $f not found, import SQL ignored."
+  fi
+done
+
+cat init-db/init.sql > init-db/init_tmp.sql
+sed -i '/COPY.*FROM/d' init-db/init_tmp.sql
+printf "%b" "$IMPORT_SQL" >> init-db/init_tmp.sql
+
+if [ -f "$VARIORUM_DIR/variorum_series.csv" ] && [ -f "$VARIORUM_DIR/variorum_series.sql" ]; then
+  echo "Found variorum_series.csv and auto-generated SQL schema."
+  # The SQL file already contains the CREATE TABLE and COPY commands
+  cat "$VARIORUM_DIR/variorum_series.sql" >> init-db/init_tmp.sql
+  echo "Added variorum_series schema to database initialization."
+else
+  if [ ! -f "$VARIORUM_DIR/variorum_series.csv" ]; then
+    echo "WARNING: variorum_series.csv not found, skipping series import." >&2
+  fi
+  if [ ! -f "$VARIORUM_DIR/variorum_series.sql" ]; then
+    echo "WARNING: variorum_series.sql not found, skipping series schema." >&2
+  fi
+fi
 
 echo ""
 echo "Waiting for services to start completely..."

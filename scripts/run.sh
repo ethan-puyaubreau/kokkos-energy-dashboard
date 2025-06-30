@@ -1,0 +1,3 @@
+python aggregate_nvml.py
+python aggregate_nvml_energy.py
+python aggregate_variorum.py
