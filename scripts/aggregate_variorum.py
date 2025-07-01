@@ -21,10 +21,9 @@ OUTPUT_FILES = {
     'variorum_gpus': 'variorum_gpus.csv',
     'variorum_kernels': 'variorum_kernels.csv',
     'variorum_stats': 'variorum_stats.csv',
-    'variorum_series': 'variorum_series.csv',
 }
 
-TIME_WINDOW_MS = 100
+TIME_WINDOW_MS = 20
 
 def group_by_time_window(df, time_col, window_ms):
     df = df.copy()
@@ -88,88 +87,17 @@ def aggregate_dat(files):
     df_mean.columns = ['stat_name', 'value']
     return df_mean
 
-def create_variorum_series_from_aggregated(gpus_csv, kernels_csv):
-    import pandas as pd
-    gpu_data = pd.read_csv(gpus_csv)
-    kernel_data = pd.read_csv(kernels_csv)
-    kernel_data['col_id'] = kernel_data.apply(
-        lambda row: f"{row['name']}__{int(row['start_time_ms'])}_{int(row['end_time_ms'])}", axis=1)
-    kernel_instances = kernel_data[['name', 'start_time_ms', 'end_time_ms', 'col_id']]
-    result_rows = []
-    for _, gpu_row in gpu_data.iterrows():
-        timestamp = gpu_row['timestamp_ms']
-        power = gpu_row['power_watts']
-        row = {'time': timestamp}
-        for _, k_row in kernel_instances.iterrows():
-            col = k_row['col_id']
-            if k_row['start_time_ms'] <= timestamp <= k_row['end_time_ms']:
-                row[col] = power
-            else:
-                row[col] = None
-        result_rows.append(row)
-    result_df = pd.DataFrame(result_rows)
-    if not result_df.empty:
-        min_time = result_df['time'].min()
-        result_df['time'] = result_df['time'] - min_time
-    return result_df
-
-def generate_variorum_series_sql(df, output_dir):
-    if df.empty:
-        return
-    columns = df.columns.tolist()
-    time_col = columns[0]
-    kernel_cols = columns[1:]
-    def clean_col(name):
-        return ''.join(c if c.isalnum() or c == '_' else '_' for c in name.replace(' ', '_').replace('[', '_').replace(']', '_').replace('-', '_').replace('.', '_'))
-    sql_kernel_cols = [clean_col(k) for k in kernel_cols]
-    sql_content = "-- Auto-generated SQL for variorum_series table\n"
-    sql_content += "DROP TABLE IF EXISTS variorum_series;\n"
-    sql_content += "CREATE TABLE variorum_series (\n"
-    sql_content += "    time_ms DECIMAL(18,3) NOT NULL"
-    for col in sql_kernel_cols:
-        sql_content += f",\n    {col} DECIMAL(12,6)"
-    sql_content += "\n);\n\n"
-    sql_content += f"\\COPY variorum_series FROM '/csv_data/variorum/variorum_series.csv' WITH (FORMAT csv, HEADER true);\n\n"
-    where_clause = ' OR '.join([f"{col} != 0" for col in sql_kernel_cols])
-    sql_content += f"-- Select only rows where at least one kernel column is nonzero\n"
-    sql_content += f"SELECT * FROM variorum_series WHERE {where_clause};\n\n"
-    sql_content += "-- Fonction dynamique pour sélectionner toutes les lignes où au moins une colonne kernel est différente de 0\n"
-    sql_content += "CREATE OR REPLACE FUNCTION select_variorum_nonzero()\n"
-    sql_content += "RETURNS SETOF variorum_series AS $$\n"
-    sql_content += "DECLARE\n"
-    sql_content += "    col_list text;\n"
-    sql_content += "    dyn_sql text;\n"
-    sql_content += "BEGIN\n"
-    sql_content += "    SELECT string_agg(format('%I != 0', column_name), ' OR ')\n"
-    sql_content += "    INTO col_list\n"
-    sql_content += "    FROM information_schema.columns\n"
-    sql_content += "    WHERE table_name = 'variorum_series'\n"
-    sql_content += "      AND column_name != 'time_ms';\n"
-    sql_content += "    dyn_sql := format('SELECT * FROM variorum_series WHERE %s', col_list);\n"
-    sql_content += "    RETURN QUERY EXECUTE dyn_sql;\n"
-    sql_content += "END;\n"
-    sql_content += "$$ LANGUAGE plpgsql;\n\n"
-    sql_content += "-- Utilisation :\n-- SELECT * FROM select_variorum_nonzero();\n"
-    sql_path = os.path.join(output_dir, 'variorum_series.sql')
-    with open(sql_path, 'w') as f:
-        f.write(sql_content)
-    print(f'Generated SQL schema: {sql_path}')
-
 def main():
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     found_any = False
-    gpu_files = []
-    kernel_files = []
+    
     for key, pattern in PATTERNS.items():
         files = glob(os.path.join(INPUT_DIR, '**', pattern), recursive=True)
         if not files:
             print(f'WARNING: No files found for {key} in {INPUT_DIR}', file=sys.stderr)
             continue
         found_any = True
-        if key == 'variorum_gpus':
-            gpu_files = files
-        elif key == 'variorum_kernels':
-            kernel_files = files
+        
         df = None
         if key == 'variorum_stats':
             df = aggregate_dat(files)
@@ -181,26 +109,14 @@ def main():
             df = aggregate_gpus_csv(files)
         elif key == 'variorum_kernels':
             df = aggregate_kernels_csv(files)
+        
         if df is not None and not df.empty:
             out_path = os.path.join(OUTPUT_DIR, OUTPUT_FILES[key])
             df.to_csv(out_path, index=False)
             print(f'Wrote {out_path} with {len(df)} rows.')
         elif df is not None and df.empty:
             print(f'INFO: No aggregated data for {key}. Output file not created.', file=sys.stderr)
-    gpus_csv = os.path.join(OUTPUT_DIR, OUTPUT_FILES['variorum_gpus'])
-    kernels_csv = os.path.join(OUTPUT_DIR, OUTPUT_FILES['variorum_kernels'])
-    if os.path.exists(gpus_csv) and os.path.exists(kernels_csv):
-        print("Creating variorum time series from aggregated files...")
-        series_df = create_variorum_series_from_aggregated(gpus_csv, kernels_csv)
-        if not series_df.empty:
-            series_path = os.path.join(OUTPUT_DIR, OUTPUT_FILES['variorum_series'])
-            series_df.to_csv(series_path, index=False)
-            print(f'Wrote {series_path} with {len(series_df)} rows.')
-            generate_variorum_series_sql(series_df, OUTPUT_DIR)
-        else:
-            print('INFO: No time series data generated.', file=sys.stderr)
-    else:
-        print('WARNING: Cannot create time series - missing GPU or kernel data.', file=sys.stderr)
+    
     if not found_any:
         print(f'WARNING: No input data found for {INPUT_DIR}. Skipping aggregation.', file=sys.stderr)
 

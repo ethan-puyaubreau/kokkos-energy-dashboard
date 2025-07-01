@@ -26,7 +26,7 @@ mkdir -p data/variorum
 echo "Aggregating data into input files..."
 
 DOCKER_IMAGE_AGG="input:latest"
-docker build -f docker/Dockerfile.agg -t $DOCKER_IMAGE_AGG .
+docker build -f Dockerfile.agg -t $DOCKER_IMAGE_AGG .
 docker run --rm -v "$PWD/input:/app/input" -v "$PWD/data:/app/data" $DOCKER_IMAGE_AGG
 
 echo "Starting PostgreSQL database and Grafana via Docker Compose..."
@@ -99,20 +99,6 @@ done
 cat init-db/init.sql > init-db/init_tmp.sql
 sed -i '/COPY.*FROM/d' init-db/init_tmp.sql
 printf "%b" "$IMPORT_SQL" >> init-db/init_tmp.sql
-
-if [ -f "$VARIORUM_DIR/variorum_series.csv" ] && [ -f "$VARIORUM_DIR/variorum_series.sql" ]; then
-  echo "Found variorum_series.csv and auto-generated SQL schema."
-  # The SQL file already contains the CREATE TABLE and COPY commands
-  cat "$VARIORUM_DIR/variorum_series.sql" >> init-db/init_tmp.sql
-  echo "Added variorum_series schema to database initialization."
-else
-  if [ ! -f "$VARIORUM_DIR/variorum_series.csv" ]; then
-    echo "WARNING: variorum_series.csv not found, skipping series import." >&2
-  fi
-  if [ ! -f "$VARIORUM_DIR/variorum_series.sql" ]; then
-    echo "WARNING: variorum_series.sql not found, skipping series schema." >&2
-  fi
-fi
 
 echo ""
 echo "Waiting for services to start completely..."

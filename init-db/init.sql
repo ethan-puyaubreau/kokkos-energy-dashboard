@@ -67,6 +67,4 @@ CREATE TABLE IF NOT EXISTS variorum_stats (
     value TEXT NOT NULL
 );
 
--- Table for variorum_series will be created dynamically based on CSV structure
-
 -- COPY commands will be dynamically added by the setup.sh script
