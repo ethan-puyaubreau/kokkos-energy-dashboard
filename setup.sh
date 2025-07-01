@@ -25,13 +25,20 @@ mkdir -p data/variorum
 
 echo "Aggregating data into input files..."
 
-DOCKER_IMAGE_AGG="input:latest"
-docker build -f Dockerfile.agg -t $DOCKER_IMAGE_AGG .
-docker run --rm -v "$PWD/input:/app/input" -v "$PWD/data:/app/data" $DOCKER_IMAGE_AGG
+echo "Create venv and install requirements..."
+python3 -m venv venv
+source venv/bin/activate
+pip install numpy pandas
+
+python3 scripts/aggregate_nvml_energy.py
+python3 scripts/aggregate_nvml.py
+python3 scripts/aggregate_variorum.py
+
+echo "Delete venv"
+deactivate
+rm -rf venv
 
 echo "Starting PostgreSQL database and Grafana via Docker Compose..."
-#specify the compose file explicitly
-docker compose up -d
 
 NVML_DIR="data/nvml_power"
 NVML_FILES=("nvml_relative.csv" "nvml_absolute.csv" "nvml_stats.csv")
@@ -99,6 +106,14 @@ done
 cat init-db/init.sql > init-db/init_tmp.sql
 sed -i '/COPY.*FROM/d' init-db/init_tmp.sql
 printf "%b" "$IMPORT_SQL" >> init-db/init_tmp.sql
+
+if [ -f "$VARIORUM_DIR/variorum_series.sql" ]; then
+  cat "$VARIORUM_DIR/variorum_series.sql" >> init-db/init_tmp.sql
+else
+  echo "WARNING: variorum_series.sql not found, SQL for variorum_series table not imported."
+fi
+
+docker compose up -d
 
 echo ""
 echo "Waiting for services to start completely..."
