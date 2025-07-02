@@ -539,28 +539,23 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "fixedColor": "blue",
-            "mode": "fixed",
-            "seriesBy": "last"
+            "mode": "palette-classic"
           },
           "custom": {
             "axisBorderShow": false,
             "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
+            "axisColorMode": "series",
+            "axisLabel": "Power (W)",
             "axisPlacement": "auto",
-            "fillOpacity": 50,
+            "fillOpacity": 100,
             "hideFrom": {
               "legend": false,
               "tooltip": false,
               "viz": false
             },
-            "lineStyle": {
-              "fill": "solid"
-            },
             "pointShape": "circle",
             "pointSize": {
-              "fixed": 3
+              "fixed": 4
             },
             "pointStrokeWidth": 1,
             "scaleDistribution": {
@@ -575,6 +570,10 @@
             "steps": [
               {
                 "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
               }
             ]
           }
@@ -583,19 +582,23 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Time"
+              "options": "time_ns"
             },
             "properties": [
               {
+                "id": "custom.axisLabel",
+                "value": "Time"
+              },
+              {
                 "id": "unit",
-                "value": "ms"
+                "value": "ns"
               }
             ]
           },
           {
             "matcher": {
-              "id": "byName",
-              "options": "Power"
+              "id": "byRegexp",
+              "options": "^(?!.*time_ns).*$"
             },
             "properties": [
               {
@@ -608,19 +611,19 @@
       },
       "gridPos": {
         "h": 16,
-        "w": 15,
+        "w": 18,
         "x": 0,
         "y": 38
       },
-      "id": 11,
+      "id": 22,
       "options": {
         "legend": {
           "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
+          "displayMode": "table",
+          "placement": "right",
           "showLegend": true
         },
-        "mapping": "manual",
+        "mapping": "auto",
         "series": [
           {
             "frame": {
@@ -632,13 +635,7 @@
             "x": {
               "matcher": {
                 "id": "byName",
-                "options": "Time"
-              }
-            },
-            "y": {
-              "matcher": {
-                "id": "byName",
-                "options": "Power"
+                "options": "time_ns"
               }
             }
           }
@@ -652,30 +649,15 @@
       "pluginVersion": "12.0.2",
       "targets": [
         {
-          "editorMode": "builder",
+          "editorMode": "code",
           "format": "table",
-          "rawSql": "SELECT time_relative_ms AS \"Time\", power_watts AS \"Power\" FROM nvml_relative ",
+          "rawQuery": true,
+          "rawSql": "SELECT * FROM select_nvml_series_nonzero()",
           "refId": "A",
           "sql": {
             "columns": [
               {
-                "alias": "\"Time\"",
-                "parameters": [
-                  {
-                    "name": "time_relative_ms",
-                    "type": "functionParameter"
-                  }
-                ],
-                "type": "function"
-              },
-              {
-                "alias": "\"Power\"",
-                "parameters": [
-                  {
-                    "name": "power_watts",
-                    "type": "functionParameter"
-                  }
-                ],
+                "parameters": [],
                 "type": "function"
               }
             ],
@@ -686,12 +668,12 @@
                 },
                 "type": "groupBy"
               }
-            ]
-          },
-          "table": "nvml_relative"
+            ],
+            "limit": 50
+          }
         }
       ],
-      "title": "Power over Time (NVML Power)",
+      "title": "Power Over Time (Region Detail)",
       "type": "xychart"
     },
     {
@@ -755,9 +737,9 @@
         ]
       },
       "gridPos": {
-        "h": 10,
+        "h": 16,
         "w": 6,
-        "x": 15,
+        "x": 18,
         "y": 38
       },
       "id": 12,
@@ -852,17 +834,409 @@
       "type": "stat"
     },
     {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bepxmpopbv668b"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "blue",
+            "mode": "fixed",
+            "seriesBy": "last"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 50,
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "pointShape": "circle",
+            "pointSize": {
+              "fixed": 3
+            },
+            "pointStrokeWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "show": "points+lines"
+          },
+          "fieldMinMax": false,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Power"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "watt"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 15,
+        "x": 0,
+        "y": 54
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "mapping": "manual",
+        "series": [
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": {
+              "matcher": {
+                "id": "byName",
+                "options": "Time"
+              }
+            },
+            "y": {
+              "matcher": {
+                "id": "byName",
+                "options": "Power"
+              }
+            }
+          }
+        ],
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "builder",
+          "format": "table",
+          "rawSql": "SELECT time_relative_ms AS \"Time\", power_watts AS \"Power\" FROM nvml_relative ",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "alias": "\"Time\"",
+                "parameters": [
+                  {
+                    "name": "time_relative_ms",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "alias": "\"Power\"",
+                "parameters": [
+                  {
+                    "name": "power_watts",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ]
+          },
+          "table": "nvml_relative"
+        }
+      ],
+      "title": "Power over Time (NVML Power)",
+      "type": "xychart"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 54
+        "y": 64
       },
       "id": 20,
       "panels": [],
       "title": "Data Using NVML Profiler (Energy Variant) (WIP)",
       "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bepxmpopbv668b"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "series",
+            "axisLabel": "Power (W)",
+            "axisPlacement": "auto",
+            "fillOpacity": 100,
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "pointShape": "circle",
+            "pointSize": {
+              "fixed": 4
+            },
+            "pointStrokeWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "show": "points+lines"
+          },
+          "fieldMinMax": false,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "time_ns"
+            },
+            "properties": [
+              {
+                "id": "custom.axisLabel",
+                "value": "Time"
+              },
+              {
+                "id": "unit",
+                "value": "ns"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "^(?!.*time_ns).*$"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "joule"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 16,
+        "w": 18,
+        "x": 0,
+        "y": 65
+      },
+      "id": 23,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "mapping": "auto",
+        "series": [
+          {
+            "frame": {
+              "matcher": {
+                "id": "byIndex",
+                "options": 0
+              }
+            },
+            "x": {
+              "matcher": {
+                "id": "byName",
+                "options": "time_ns"
+              }
+            }
+          }
+        ],
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT * FROM select_nvml_energy_series_nonzero()",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Energy Over Time (Region Detail)",
+      "type": "xychart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bepxmpopbv668b"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 15,
+        "w": 6,
+        "x": 18,
+        "y": 65
+      },
+      "id": 19,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "builder",
+          "format": "table",
+          "rawSql": "SELECT * FROM nvml_energy_stats LIMIT 50 ",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [
+                  {
+                    "name": "*",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          },
+          "table": "nvml_energy_stats"
+        }
+      ],
+      "title": "Statistics Table",
+      "type": "table"
     },
     {
       "datasource": {
@@ -934,10 +1308,10 @@
         ]
       },
       "gridPos": {
-        "h": 16,
+        "h": 13,
         "w": 15,
         "x": 0,
-        "y": 55
+        "y": 81
       },
       "id": 21,
       "options": {
@@ -992,98 +1366,13 @@
                 },
                 "type": "groupBy"
               }
-            ],
-            "limit": null
+            ]
           },
           "table": "nvml_energy_relative"
         }
       ],
       "title": "Energy over Time",
       "type": "xychart"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "bepxmpopbv668b"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "auto",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 7,
-        "x": 15,
-        "y": 55
-      },
-      "id": 19,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
-        },
-        "showHeader": true
-      },
-      "pluginVersion": "12.0.2",
-      "targets": [
-        {
-          "editorMode": "builder",
-          "format": "table",
-          "rawSql": "SELECT * FROM nvml_energy_stats LIMIT 50 ",
-          "refId": "A",
-          "sql": {
-            "columns": [
-              {
-                "parameters": [
-                  {
-                    "name": "*",
-                    "type": "functionParameter"
-                  }
-                ],
-                "type": "function"
-              }
-            ],
-            "groupBy": [
-              {
-                "property": {
-                  "type": "string"
-                },
-                "type": "groupBy"
-              }
-            ],
-            "limit": 50
-          },
-          "table": "nvml_energy_stats"
-        }
-      ],
-      "title": "Statistics Table",
-      "type": "table"
     }
   ],
   "preload": false,
@@ -1104,5 +1393,5 @@
   "timezone": "browser",
   "title": "Energy Analysis Dashboard",
   "uid": "energy-analysis-main",
-  "version": 6
+  "version": 4
 }

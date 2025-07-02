@@ -37,6 +37,10 @@ else
     echo "   Info: 'data/' folder doesn't exist"
 fi
 
+print_step "Removing pycaches folders..."
+find . -type d -name "__pycache__" -exec rm -rf {} +
+echo "   Done: __pycache__ folders removed"
+
 print_step "Cleaning orphaned Docker resources..."
 docker system prune -f &>/dev/null
 echo "   Done: Orphaned resources cleaned"

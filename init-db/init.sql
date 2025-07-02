@@ -74,4 +74,22 @@ CREATE TABLE IF NOT EXISTS variorum_regions (
     end_time_ms DECIMAL(18,3) NOT NULL
 );
 
+-- NVML POWER REGIONS TABLE
+DROP TABLE IF EXISTS nvml_power_regions;
+CREATE TABLE IF NOT EXISTS nvml_power_regions (
+    name TEXT NOT NULL,
+    start_time_ns DECIMAL(20,0) NOT NULL,
+    end_time_ns DECIMAL(20,0) NOT NULL,
+    duration_ns DECIMAL(20,0) NOT NULL
+);
+
+-- NVML ENERGY REGIONS TABLE
+DROP TABLE IF EXISTS nvml_energy_regions;
+CREATE TABLE IF NOT EXISTS nvml_energy_regions (
+    name TEXT NOT NULL,
+    start_time_ns DECIMAL(20,0) NOT NULL,
+    end_time_ns DECIMAL(20,0) NOT NULL,
+    duration_ns DECIMAL(20,0) NOT NULL
+);
+
 -- COPY commands will be dynamically added by the setup.sh script

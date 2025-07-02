@@ -30,9 +30,9 @@ python3 -m venv venv
 source venv/bin/activate
 pip install numpy pandas
 
-python3 scripts/aggregate_nvml_energy.py
-python3 scripts/aggregate_nvml.py
-python3 scripts/aggregate_variorum.py
+python3 scripts/nvml_energy/aggregate_nvml_energy.py
+python3 scripts/nvml/aggregate_nvml.py
+python3 scripts/variorum/aggregate_variorum.py
 
 echo "Delete venv"
 deactivate
@@ -111,6 +111,20 @@ if [ -f "$VARIORUM_DIR/variorum_series.sql" ]; then
   cat "$VARIORUM_DIR/variorum_series.sql" >> init-db/init_tmp.sql
 else
   echo "WARNING: variorum_series.sql not found, SQL for variorum_series table not imported."
+fi
+
+NVML_SERIES_SQL="data/nvml_power/nvml_series.sql"
+if [ -f "$NVML_SERIES_SQL" ]; then
+  cat "$NVML_SERIES_SQL" >> init-db/init_tmp.sql
+else
+  echo "WARNING: nvml_series.sql not found, SQL for nvml_series table not imported."
+fi
+
+NVML_ENERGY_SERIES_SQL="data/nvml_energy/nvml_energy_series.sql"
+if [ -f "$NVML_ENERGY_SERIES_SQL" ]; then
+  cat "$NVML_ENERGY_SERIES_SQL" >> init-db/init_tmp.sql
+else
+  echo "WARNING: nvml_energy_series.sql not found, SQL for nvml_energy_series table not imported."
 fi
 
 docker compose up -d
