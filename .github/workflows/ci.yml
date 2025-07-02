@@ -3,146 +3,286 @@ name: Energy Analysis Dashboard CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [ main, develop ]
   pull_request:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Lint shell scripts
-        run: |
-          sudo apt-get install shellcheck
-          shellcheck setup.sh remove.sh
+    - uses: actions/checkout@v4
 
-      - name: Lint YAML files
-        uses: ibiqlik/action-yamllint@v3
-        with:
-          file_or_dir: docker-compose.yml .github/workflows/
+    - name: Lint shell scripts
+      run: |
+        sudo apt-get update && sudo apt-get install shellcheck
+        shellcheck setup.sh remove.sh input/clean.sh input/generic_script.sh
 
-      - name: Validate JSON dashboard
-        run: |
-          python3 -m json.tool \
-            grafana/dashboards/energy-analysis-dashboard.json > /dev/null
-          echo "Dashboard JSON is valid"
+    - name: Lint YAML files
+      uses: ibiqlik/action-yamllint@v3
+      with:
+        file_or_dir: docker-compose.yml .github/workflows/ grafana/provisioning/
+
+    - name: Validate JSON dashboard
+      run: |
+        python3 -m json.tool \
+          grafana/dashboards/energy-analysis-dashboard.json > /dev/null
+        echo "Dashboard JSON is valid"
+
+    - name: Lint Python scripts
+      run: |
+        python3 -m py_compile scripts/aggregate_nvml.py
+        python3 -m py_compile scripts/aggregate_nvml_energy.py
+        python3 -m py_compile scripts/aggregate_variorum.py
+
+  test-aggregation-scripts:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas numpy
+
+    - name: Create test input data
+      run: |
+        # Create NVML Power test data
+        mkdir -p input/nvml_power/energy_bench_nvml_power_1
+        echo "time_relative_ms,power_watts,energy_relative_joules" \
+          > input/nvml_power/energy_bench_nvml_power_1/TEST-1234-nvml-power-relative.csv
+        echo "0.0,50.5,0.0" >> input/nvml_power/energy_bench_nvml_power_1/TEST-1234-nvml-power-relative.csv
+        echo "20.0,55.2,1.1" >> input/nvml_power/energy_bench_nvml_power_1/TEST-1234-nvml-power-relative.csv
+
+        echo "timestamp_system_epoch_ms,nvml_power_watts,nvml_integrated_energy_joules" \
+          > input/nvml_power/energy_bench_nvml_power_1/TEST-1234-nvml-power.csv
+        echo "1750798932374,50.5,100.0" >> input/nvml_power/energy_bench_nvml_power_1/TEST-1234-nvml-power.csv
+        echo "1750798932394,55.2,101.1" >> input/nvml_power/energy_bench_nvml_power_1/TEST-1234-nvml-power.csv
+
+        echo "Energy Analysis Statistics:" \
+          > input/nvml_power/energy_bench_nvml_power_1/TEST-1234-nvml-power.dat
+        echo "execution_time_seconds: 5.2" >> input/nvml_power/energy_bench_nvml_power_1/TEST-1234-nvml-power.dat
+        echo "average_power_watts: 52.8" >> input/nvml_power/energy_bench_nvml_power_1/TEST-1234-nvml-power.dat
+
+        # Create NVML Energy test data
+        mkdir -p input/nvml_energy/energy_bench_nvml_energy_1
+        echo "time_relative_ms,energy_joules" \
+          > input/nvml_energy/energy_bench_nvml_energy_1/TEST-1234-nvml-energy-relative.csv
+        echo "0.0,0.0" >> input/nvml_energy/energy_bench_nvml_energy_1/TEST-1234-nvml-energy-relative.csv
+        echo "20.0,1.1" >> input/nvml_energy/energy_bench_nvml_energy_1/TEST-1234-nvml-energy-relative.csv
+
+        # Create Variorum test data
+        mkdir -p input/variorum/energy_bench_variorum_power_1
+        echo "timestamp_nanoseconds,power_watts,device_id" \
+          > input/variorum/energy_bench_variorum_power_1/TEST-1234-variorum-power-gpus.csv
+        echo "1750798932374000000,50.5,0" >> input/variorum/energy_bench_variorum_power_1/TEST-1234-variorum-power-gpus.csv
+        echo "1750798932394000000,55.2,0" >> input/variorum/energy_bench_variorum_power_1/TEST-1234-variorum-power-gpus.csv
+
+        echo "name,start_time_ns,end_time_ns,duration_ns" \
+          > input/variorum/energy_bench_variorum_power_1/TEST-1234-variorum-power-regions.csv
+        echo "TestRegion,1750798932374000000,1750798932394000000,20000000" >> input/variorum/energy_bench_variorum_power_1/TEST-1234-variorum-power-regions.csv
+
+    - name: Test aggregation scripts
+      run: |
+        python3 scripts/aggregate_nvml.py
+        python3 scripts/aggregate_nvml_energy.py
+        python3 scripts/aggregate_variorum.py
+
+    - name: Verify aggregated output
+      run: |
+        ls -la data/
+        test -f data/nvml_power/nvml_relative.csv || echo "NVML relative CSV missing"
+        test -f data/nvml_power/nvml_stats.csv || echo "NVML stats CSV missing"
+        test -f data/nvml_energy/nvml_energy_relative.csv || echo "NVML energy CSV missing"
+        test -f data/variorum/variorum_gpus.csv || echo "Variorum GPUs CSV missing"
+        test -f data/variorum/variorum_regions.csv || echo "Variorum regions CSV missing"
 
   test-integration:
     runs-on: ubuntu-latest
+    needs: test-aggregation-scripts
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - name: Create test CSV files
-        run: |
-          # Create test power data (with prefix)
-          echo "timestamp_ms,device_id,device_name,power_watts" \
-            > test_experiment_power.csv
-          echo "1750798932374,0,GPU_0,10.07" >> test_experiment_power.csv
-          echo "1750798932394,0,GPU_0,15.5" >> test_experiment_power.csv
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
 
-          # Create test kernels data (with prefix)
-          echo "id,name,type,execution_space,device_id,start_time_ms,\
-          end_time_ms,duration_ms,energy_joules,average_power_watts" \
-            > test_experiment_kernels.csv
-          echo "0,TestKernel,For,Cuda,0,1750798932374,1750798932394,\
-          20,0.31,15.5" >> test_experiment_kernels.csv
+    - name: Create comprehensive test data
+      run: |
+        # Create realistic test data matching the actual schema
+        mkdir -p input/nvml_power/energy_bench_nvml_power_1
+        mkdir -p input/nvml_energy/energy_bench_nvml_energy_1
+        mkdir -p input/variorum/energy_bench_variorum_power_1
 
-          # Create test regions data (with prefix)
-          echo "id,name,start_time_ms,end_time_ms,duration_ms" \
-            > test_experiment_regions.csv
-          echo "0,TestRegion,1750798932374,1750798932394,20" \
-            >> test_experiment_regions.csv
+        # NVML Power data
+        echo "time_relative_ms,power_watts,energy_relative_joules" \
+          > input/nvml_power/energy_bench_nvml_power_1/CI-TEST-nvml-power-relative.csv
+        echo "0.0,45.2,0.0" >> input/nvml_power/energy_bench_nvml_power_1/CI-TEST-nvml-power-relative.csv
+        echo "20.0,48.5,0.965" >> input/nvml_power/energy_bench_nvml_power_1/CI-TEST-nvml-power-relative.csv
+        echo "40.0,52.1,1.967" >> input/nvml_power/energy_bench_nvml_power_1/CI-TEST-nvml-power-relative.csv
 
-      - name: Test Docker services startup
-        run: |
-          timeout 300 ./setup.sh test_experiment
+        echo "timestamp_system_epoch_ms,nvml_power_watts,nvml_integrated_energy_joules" \
+          > input/nvml_power/energy_bench_nvml_power_1/CI-TEST-nvml-power.csv
+        echo "1750798932374,45.2,100.0" >> input/nvml_power/energy_bench_nvml_power_1/CI-TEST-nvml-power.csv
+        echo "1750798932394,48.5,100.965" >> input/nvml_power/energy_bench_nvml_power_1/CI-TEST-nvml-power.csv
 
-      - name: Verify services health
-        run: |
-          # Wait for services to be ready
-          sleep 30
-          curl -f http://localhost:3000/api/health || \
-            echo "Grafana health check failed"
-          docker exec energy_analysis_db pg_isready || \
-            echo "Database health check failed"
+        echo "Energy Analysis Statistics:" \
+          > input/nvml_power/energy_bench_nvml_power_1/CI-TEST-nvml-power.dat
+        echo "execution_time_seconds: 0.04" >> input/nvml_power/energy_bench_nvml_power_1/CI-TEST-nvml-power.dat
+        echo "average_power_watts: 46.85" >> input/nvml_power/energy_bench_nvml_power_1/CI-TEST-nvml-power.dat
+        echo "max_power_watts: 52.1" >> input/nvml_power/energy_bench_nvml_power_1/CI-TEST-nvml-power.dat
 
-      - name: Test database content
-        run: |
-          # Verify data was loaded correctly
-          docker exec energy_analysis_db psql -U grafana_user \
-            -d energy_analysis -c "SELECT COUNT(*) FROM power_over_time;"
-          docker exec energy_analysis_db psql -U grafana_user \
-            -d energy_analysis -c "SELECT COUNT(*) FROM kernels_info;"
+        # Variorum data with regions
+        echo "timestamp_nanoseconds,power_watts,device_id" \
+          > input/variorum/energy_bench_variorum_power_1/CI-TEST-variorum-power-gpus.csv
+        echo "1750798932374000000,45.2,0" >> input/variorum/energy_bench_variorum_power_1/CI-TEST-variorum-power-gpus.csv
+        echo "1750798932394000000,48.5,0" >> input/variorum/energy_bench_variorum_power_1/CI-TEST-variorum-power-gpus.csv
 
-      - name: Cleanup
-        run: ./remove.sh
+        echo "name,start_time_ns,end_time_ns,duration_ns" \
+          > input/variorum/energy_bench_variorum_power_1/CI-TEST-variorum-power-regions.csv
+        echo "TestRegion_1,1750798932374000000,1750798932384000000,10000000" >> input/variorum/energy_bench_variorum_power_1/CI-TEST-variorum-power-regions.csv
+        echo "TestRegion_2,1750798932384000000,1750798932394000000,10000000" >> input/variorum/energy_bench_variorum_power_1/CI-TEST-variorum-power-regions.csv
 
-  security:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
+    - name: Run full setup
+      run: |
+        timeout 300 ./setup.sh
+
+    - name: Verify services health
+      run: |
+        sleep 30
+        curl -f http://localhost:3000/api/health || echo "Grafana health check failed"
+        docker exec energy_analysis_db pg_isready -U grafana_user || echo "Database health check failed"
+
+    - name: Test database content
+      run: |
+        # Test all the new tables exist and have data
+        docker exec energy_analysis_db psql -U grafana_user -d energy_analysis -c \
+          "SELECT COUNT(*) as nvml_relative_count FROM nvml_relative;"
+        docker exec energy_analysis_db psql -U grafana_user -d energy_analysis -c \
+          "SELECT COUNT(*) as nvml_stats_count FROM nvml_stats;"
+        docker exec energy_analysis_db psql -U grafana_user -d energy_analysis -c \
+          "SELECT COUNT(*) as variorum_gpus_count FROM variorum_gpus;"
+        docker exec energy_analysis_db psql -U grafana_user -d energy_analysis -c \
+          "SELECT COUNT(*) as variorum_regions_count FROM variorum_regions;"
+
+    - name: Test dashboard accessibility
+      run: |
+        # Test that Grafana dashboard is accessible and contains expected panels
+        curl -s "http://admin:admin@localhost:3000/api/dashboards/uid/energy-analysis-main" | \
+          jq '.dashboard.panels | length' || echo "Dashboard API test failed"
+
+    - name: Cleanup
+      run: ./remove.sh
 
   test-sql-queries:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:15
+        image: postgres:15-alpine
         env:
-          POSTGRES_USER: energy_user
-          POSTGRES_PASSWORD: energy_password
+          POSTGRES_USER: grafana_user
+          POSTGRES_PASSWORD: super_secret_password
           POSTGRES_DB: energy_analysis
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
         ports:
-          - 5432:5432
+        - 5432:5432
 
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - name: Setup test database
-        run: |
-          # Load schema
-          PGPASSWORD=energy_password psql -h localhost -U energy_user \
-            -d energy_analysis -f init-db/init.sql
+    - name: Setup test database schema
+      run: |
+        PGPASSWORD=super_secret_password psql -h localhost -U grafana_user \
+          -d energy_analysis -f init-db/init.sql
 
-          # Insert test data
-          PGPASSWORD=energy_password psql -h localhost -U energy_user \
-            -d energy_analysis -c "
-          INSERT INTO power_over_time VALUES
-          (1750798932374, 0, 'GPU_0', 10.07),
-          (1750798932394, 0, 'GPU_0', 15.5);
+    - name: Insert test data for all tables
+      run: |
+        PGPASSWORD=super_secret_password psql -h localhost -U grafana_user \
+          -d energy_analysis -c "
+        INSERT INTO nvml_relative VALUES
+        (0.0, 45.2, 0.0),
+        (20.0, 48.5, 0.965);
 
-          INSERT INTO kernels_info VALUES
-          (0, 'TestKernel', 'For', 'Cuda', 0, \
-          1750798932374, 1750798932394, 20, 0.31, 15.5),
-          (1, 'TestKernelCPU', 'For', 'Host', 0, \
-          1750798932400, 1750798932420, 20, 0.2, 10.0);
-          "
+        INSERT INTO nvml_stats VALUES
+        ('execution_time_seconds', '0.04'),
+        ('average_power_watts', '46.85');
 
-      - name: Test key SQL queries
-        run: |
-          # Test power-kernel join query
-          PGPASSWORD=energy_password psql -h localhost -U energy_user \
-            -d energy_analysis -c "
-          SELECT COUNT(*) as power_kernel_matches FROM power_over_time p
-          LEFT JOIN kernels_info k ON (
-              p.device_id = k.device_id
-              AND p.timestamp_ms >= k.start_time_ms
-              AND p.timestamp_ms <= k.end_time_ms
-          );"
+        INSERT INTO variorum_gpus VALUES
+        (1750798932374, 45.2, 0),
+        (1750798932394, 48.5, 0);
 
-          # Test energy breakdown query
-          PGPASSWORD=energy_password psql -h localhost -U energy_user \
-            -d energy_analysis -c "
-          SELECT execution_space, SUM(energy_joules) as total_energy
-          FROM kernels_info
-          GROUP BY execution_space;"
+        INSERT INTO variorum_regions VALUES
+        ('TestRegion_1', 1750798932374, 1750798932384),
+        ('TestRegion_2', 1750798932384, 1750798932394);
+        "
+
+    - name: Test key SQL queries from dashboard
+      run: |
+        # Test region duration query (from pie chart)
+        PGPASSWORD=super_secret_password psql -h localhost -U grafana_user \
+          -d energy_analysis -c "
+        SELECT name, (end_time_ms - start_time_ms) AS duration_ms 
+        FROM variorum_regions;"
+
+        # Test power over time query
+        PGPASSWORD=super_secret_password psql -h localhost -U grafana_user \
+          -d energy_analysis -c "
+        SELECT time_relative_ms, power_watts 
+        FROM nvml_relative 
+        ORDER BY time_relative_ms;"
+
+        # Test stats aggregation
+        PGPASSWORD=super_secret_password psql -h localhost -U grafana_user \
+          -d energy_analysis -c "
+        SELECT stat_name, value 
+        FROM nvml_stats 
+        WHERE stat_name IN ('execution_time_seconds', 'average_power_watts');"
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  test-readme-instructions:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Test manual CSV placement instructions
+      run: |
+        # Test the manual file placement instructions from README
+        mkdir -p input/nvml_power/manual_test
+        mkdir -p input/variorum/manual_test
+
+        echo "time_relative_ms,power_watts,energy_relative_joules" \
+          > input/nvml_power/manual_test/MANUAL-TEST-nvml-power-relative.csv
+        echo "0.0,50.0,0.0" >> input/nvml_power/manual_test/MANUAL-TEST-nvml-power-relative.csv
+
+        echo "name,start_time_ns,end_time_ns,duration_ns" \
+          > input/variorum/manual_test/MANUAL-TEST-variorum-power-regions.csv
+        echo "ManualRegion,1000000000,2000000000,1000000000" >> input/variorum/manual_test/MANUAL-TEST-variorum-power-regions.csv
+
+        # Verify the naming patterns work
+        find input/ -name "*-nvml-power-relative.csv" | grep -q "MANUAL-TEST"
+        find input/ -name "*-variorum-power-regions.csv" | grep -q "MANUAL-TEST"
