@@ -37,6 +37,10 @@ jobs:
         echo "1750798932374,50.5,100.0" >> input/nvml_power/energy_bench_nvml_power_1/TEST-1234-nvml-power.csv
         echo "1750798932394,55.2,101.1" >> input/nvml_power/energy_bench_nvml_power_1/TEST-1234-nvml-power.csv
 
+        echo "name,start_time_ns,end_time_ns,duration_ns" \
+          > input/nvml_power/energy_bench_nvml_power_1/TEST-1234-nvml-regions.csv
+        echo "TestRegion,0,20000000,20000000" >> input/nvml_power/energy_bench_nvml_power_1/TEST-1234-nvml-regions.csv
+
         echo "Energy Analysis Statistics:" \
           > input/nvml_power/energy_bench_nvml_power_1/TEST-1234-nvml-power.dat
         echo "execution_time_seconds: 5.2" >> input/nvml_power/energy_bench_nvml_power_1/TEST-1234-nvml-power.dat
@@ -48,6 +52,20 @@ jobs:
           > input/nvml_energy/energy_bench_nvml_energy_1/TEST-1234-nvml-energy-relative.csv
         echo "0.0,0.0" >> input/nvml_energy/energy_bench_nvml_energy_1/TEST-1234-nvml-energy-relative.csv
         echo "20.0,1.1" >> input/nvml_energy/energy_bench_nvml_energy_1/TEST-1234-nvml-energy-relative.csv
+
+        echo "timestamp_system_epoch_ms,nvml_joules_energy" \
+          > input/nvml_energy/energy_bench_nvml_energy_1/TEST-1234-nvml-energy.csv
+        echo "1750798932374,100.0" >> input/nvml_energy/energy_bench_nvml_energy_1/TEST-1234-nvml-energy.csv
+        echo "1750798932394,101.1" >> input/nvml_energy/energy_bench_nvml_energy_1/TEST-1234-nvml-energy.csv
+
+        echo "Energy Analysis Statistics:" \
+          > input/nvml_energy/energy_bench_nvml_energy_1/TEST-1234-nvml-energy.dat
+        echo "execution_time_seconds: 0.02" >> input/nvml_energy/energy_bench_nvml_energy_1/TEST-1234-nvml-energy.dat
+        echo "total_energy_joules: 101.1" >> input/nvml_energy/energy_bench_nvml_energy_1/TEST-1234-nvml-energy.dat
+
+        echo "name,start_time_ns,end_time_ns,duration_ns" \
+          > input/nvml_energy/energy_bench_nvml_energy_1/TEST-1234-nvml-regions.csv
+        echo "TestRegion,0,20000000,20000000" >> input/nvml_energy/energy_bench_nvml_energy_1/TEST-1234-nvml-regions.csv
 
         # Create Variorum test data
         mkdir -p input/variorum/energy_bench_variorum_power_1
@@ -62,18 +80,26 @@ jobs:
 
     - name: Test aggregation scripts
       run: |
-        python3 scripts/aggregate_nvml.py
-        python3 scripts/aggregate_nvml_energy.py
-        python3 scripts/aggregate_variorum.py
+        python3 scripts/nvml/aggregate_nvml.py
+        python3 scripts/nvml_energy/aggregate_nvml_energy.py
+        python3 scripts/variorum/aggregate_variorum.py
 
     - name: Verify aggregated output
       run: |
         ls -la data/
         test -f data/nvml_power/nvml_relative.csv || echo "NVML relative CSV missing"
+        test -f data/nvml_power/nvml_absolute.csv || echo "NVML absolute CSV missing"
         test -f data/nvml_power/nvml_stats.csv || echo "NVML stats CSV missing"
-        test -f data/nvml_energy/nvml_energy_relative.csv || echo "NVML energy CSV missing"
+        test -f data/nvml_power/nvml_regions.csv || echo "NVML regions CSV missing"
+        test -f data/nvml_power/nvml_series.csv || echo "NVML series CSV missing"
+        test -f data/nvml_energy/nvml_energy_relative.csv || echo "NVML energy relative CSV missing"
+        test -f data/nvml_energy/nvml_energy_absolute.csv || echo "NVML energy absolute CSV missing"
+        test -f data/nvml_energy/nvml_energy_stats.csv || echo "NVML energy stats CSV missing"
+        test -f data/nvml_energy/nvml_energy_regions.csv || echo "NVML energy regions CSV missing"
+        test -f data/nvml_energy/nvml_energy_series.csv || echo "NVML energy series CSV missing"
         test -f data/variorum/variorum_gpus.csv || echo "Variorum GPUs CSV missing"
         test -f data/variorum/variorum_regions.csv || echo "Variorum regions CSV missing"
+        test -f data/variorum/variorum_series.csv || echo "Variorum series CSV missing"
 
   test-integration:
     runs-on: ubuntu-latest
@@ -105,11 +131,39 @@ jobs:
         echo "1750798932374,45.2,100.0" >> input/nvml_power/energy_bench_nvml_power_1/CI-TEST-nvml-power.csv
         echo "1750798932394,48.5,100.965" >> input/nvml_power/energy_bench_nvml_power_1/CI-TEST-nvml-power.csv
 
+        echo "name,start_time_ns,end_time_ns,duration_ns" \
+          > input/nvml_power/energy_bench_nvml_power_1/CI-TEST-nvml-regions.csv
+        echo "TestRegion_1,0,20000000,20000000" >> input/nvml_power/energy_bench_nvml_power_1/CI-TEST-nvml-regions.csv
+        echo "TestRegion_2,20000000,40000000,20000000" >> input/nvml_power/energy_bench_nvml_power_1/CI-TEST-nvml-regions.csv
+
         echo "Energy Analysis Statistics:" \
           > input/nvml_power/energy_bench_nvml_power_1/CI-TEST-nvml-power.dat
         echo "execution_time_seconds: 0.04" >> input/nvml_power/energy_bench_nvml_power_1/CI-TEST-nvml-power.dat
         echo "average_power_watts: 46.85" >> input/nvml_power/energy_bench_nvml_power_1/CI-TEST-nvml-power.dat
         echo "max_power_watts: 52.1" >> input/nvml_power/energy_bench_nvml_power_1/CI-TEST-nvml-power.dat
+
+        # NVML Energy test data
+        echo "time_relative_ms,energy_relative_joules" \
+          > input/nvml_energy/energy_bench_nvml_energy_1/CI-TEST-nvml-energy-relative.csv
+        echo "0.0,0.0" >> input/nvml_energy/energy_bench_nvml_energy_1/CI-TEST-nvml-energy-relative.csv
+        echo "20.0,1.1" >> input/nvml_energy/energy_bench_nvml_energy_1/CI-TEST-nvml-energy-relative.csv
+        echo "40.0,2.2" >> input/nvml_energy/energy_bench_nvml_energy_1/CI-TEST-nvml-energy-relative.csv
+
+        echo "timestamp_system_epoch_ms,nvml_joules_energy" \
+          > input/nvml_energy/energy_bench_nvml_energy_1/CI-TEST-nvml-energy.csv
+        echo "1750798932374,100.0" >> input/nvml_energy/energy_bench_nvml_energy_1/CI-TEST-nvml-energy.csv
+        echo "1750798932394,101.1" >> input/nvml_energy/energy_bench_nvml_energy_1/CI-TEST-nvml-energy.csv
+        echo "1750798932414,102.2" >> input/nvml_energy/energy_bench_nvml_energy_1/CI-TEST-nvml-energy.csv
+
+        echo "Energy Analysis Statistics:" \
+          > input/nvml_energy/energy_bench_nvml_energy_1/CI-TEST-nvml-energy.dat
+        echo "execution_time_seconds: 0.04" >> input/nvml_energy/energy_bench_nvml_energy_1/CI-TEST-nvml-energy.dat
+        echo "total_energy_joules: 2.2" >> input/nvml_energy/energy_bench_nvml_energy_1/CI-TEST-nvml-energy.dat
+
+        echo "name,start_time_ns,end_time_ns,duration_ns" \
+          > input/nvml_energy/energy_bench_nvml_energy_1/CI-TEST-nvml-regions.csv
+        echo "TestRegion_1,0,20000000,20000000" >> input/nvml_energy/energy_bench_nvml_energy_1/CI-TEST-nvml-regions.csv
+        echo "TestRegion_2,20000000,40000000,20000000" >> input/nvml_energy/energy_bench_nvml_energy_1/CI-TEST-nvml-regions.csv
 
         # Variorum data with regions
         echo "timestamp_nanoseconds,power_watts,device_id" \
@@ -138,7 +192,19 @@ jobs:
         docker exec energy_analysis_db psql -U grafana_user -d energy_analysis -c \
           "SELECT COUNT(*) as nvml_relative_count FROM nvml_relative;"
         docker exec energy_analysis_db psql -U grafana_user -d energy_analysis -c \
+          "SELECT COUNT(*) as nvml_absolute_count FROM nvml_absolute;"
+        docker exec energy_analysis_db psql -U grafana_user -d energy_analysis -c \
           "SELECT COUNT(*) as nvml_stats_count FROM nvml_stats;"
+        docker exec energy_analysis_db psql -U grafana_user -d energy_analysis -c \
+          "SELECT COUNT(*) as nvml_regions_count FROM nvml_power_regions;"
+        docker exec energy_analysis_db psql -U grafana_user -d energy_analysis -c \
+          "SELECT COUNT(*) as nvml_energy_relative_count FROM nvml_energy_relative;"
+        docker exec energy_analysis_db psql -U grafana_user -d energy_analysis -c \
+          "SELECT COUNT(*) as nvml_energy_absolute_count FROM nvml_energy_absolute;"
+        docker exec energy_analysis_db psql -U grafana_user -d energy_analysis -c \
+          "SELECT COUNT(*) as nvml_energy_stats_count FROM nvml_energy_stats;"
+        docker exec energy_analysis_db psql -U grafana_user -d energy_analysis -c \
+          "SELECT COUNT(*) as nvml_energy_regions_count FROM nvml_energy_regions;"
         docker exec energy_analysis_db psql -U grafana_user -d energy_analysis -c \
           "SELECT COUNT(*) as variorum_gpus_count FROM variorum_gpus;"
         docker exec energy_analysis_db psql -U grafana_user -d energy_analysis -c \
@@ -183,9 +249,33 @@ jobs:
         (0.0, 45.2, 0.0),
         (20.0, 48.5, 0.965);
 
+        INSERT INTO nvml_absolute VALUES
+        (1750798932374, 45.2, 100.0),
+        (1750798932394, 48.5, 100.965);
+
         INSERT INTO nvml_stats VALUES
         ('execution_time_seconds', '0.04'),
         ('average_power_watts', '46.85');
+
+        INSERT INTO nvml_power_regions VALUES
+        ('TestRegion_1', 0, 20000000, 20000000),
+        ('TestRegion_2', 20000000, 40000000, 20000000);
+
+        INSERT INTO nvml_energy_relative VALUES
+        (0.0, 0.0),
+        (20.0, 1.1);
+
+        INSERT INTO nvml_energy_absolute VALUES
+        (1750798932374, 100.0),
+        (1750798932394, 101.1);
+
+        INSERT INTO nvml_energy_stats VALUES
+        ('execution_time_seconds', '0.04'),
+        ('total_energy_joules', '101.1');
+
+        INSERT INTO nvml_energy_regions VALUES
+        ('TestRegion_1', 0, 20000000, 20000000),
+        ('TestRegion_2', 20000000, 40000000, 20000000);
 
         INSERT INTO variorum_gpus VALUES
         (1750798932374, 45.2, 0),
@@ -198,11 +288,11 @@ jobs:
 
     - name: Test key SQL queries from dashboard
       run: |
-        # Test region duration query (from pie chart)
+        # Test region duration query (from pie chart) - updated for new schema
         PGPASSWORD=super_secret_password psql -h localhost -U grafana_user \
           -d energy_analysis -c "
-        SELECT name, (end_time_ms - start_time_ms) AS duration_ms 
-        FROM variorum_regions;"
+        SELECT name, duration_ns 
+        FROM nvml_power_regions;"
 
         # Test power over time query
         PGPASSWORD=super_secret_password psql -h localhost -U grafana_user \
@@ -211,12 +301,25 @@ jobs:
         FROM nvml_relative 
         ORDER BY time_relative_ms;"
 
-        # Test stats aggregation
+        # Test energy over time query
+        PGPASSWORD=super_secret_password psql -h localhost -U grafana_user \
+          -d energy_analysis -c "
+        SELECT time_relative_ms, energy_relative_joules 
+        FROM nvml_energy_relative 
+        ORDER BY time_relative_ms;"
+
+        # Test stats aggregation for both NVML variants
         PGPASSWORD=super_secret_password psql -h localhost -U grafana_user \
           -d energy_analysis -c "
         SELECT stat_name, value 
         FROM nvml_stats 
         WHERE stat_name IN ('execution_time_seconds', 'average_power_watts');"
+
+        PGPASSWORD=super_secret_password psql -h localhost -U grafana_user \
+          -d energy_analysis -c "
+        SELECT stat_name, value 
+        FROM nvml_energy_stats 
+        WHERE stat_name IN ('execution_time_seconds', 'total_energy_joules');"
 
   test-readme-instructions:
     runs-on: ubuntu-latest
@@ -234,9 +337,23 @@ jobs:
         echo "0.0,50.0,0.0" >> input/nvml_power/manual_test/MANUAL-TEST-nvml-power-relative.csv
 
         echo "name,start_time_ns,end_time_ns,duration_ns" \
+          > input/nvml_power/manual_test/MANUAL-TEST-nvml-regions.csv
+        echo "ManualRegion,1000000000,2000000000,1000000000" >> input/nvml_power/manual_test/MANUAL-TEST-nvml-regions.csv
+
+        echo "time_relative_ms,energy_relative_joules" \
+          > input/nvml_energy/manual_test/MANUAL-TEST-nvml-energy-relative.csv
+        echo "0.0,0.0" >> input/nvml_energy/manual_test/MANUAL-TEST-nvml-energy-relative.csv
+
+        echo "name,start_time_ns,end_time_ns,duration_ns" \
+          > input/nvml_energy/manual_test/MANUAL-TEST-nvml-regions.csv
+        echo "ManualRegion,1000000000,2000000000,1000000000" >> input/nvml_energy/manual_test/MANUAL-TEST-nvml-regions.csv
+
+        echo "name,start_time_ns,end_time_ns,duration_ns" \
           > input/variorum/manual_test/MANUAL-TEST-variorum-power-regions.csv
         echo "ManualRegion,1000000000,2000000000,1000000000" >> input/variorum/manual_test/MANUAL-TEST-variorum-power-regions.csv
 
         # Verify the naming patterns work
         find input/ -name "*-nvml-power-relative.csv" | grep -q "MANUAL-TEST"
+        find input/ -name "*-nvml-regions.csv" | grep -q "MANUAL-TEST"
+        find input/ -name "*-nvml-energy-relative.csv" | grep -q "MANUAL-TEST"
         find input/ -name "*-variorum-power-regions.csv" | grep -q "MANUAL-TEST"
