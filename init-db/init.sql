@@ -67,4 +67,11 @@ CREATE TABLE IF NOT EXISTS variorum_stats (
     value TEXT NOT NULL
 );
 
+DROP TABLE IF EXISTS variorum_regions;
+CREATE TABLE IF NOT EXISTS variorum_regions (
+    name TEXT NOT NULL,
+    start_time_ms DECIMAL(18,3) NOT NULL,
+    end_time_ms DECIMAL(18,3) NOT NULL
+);
+
 -- COPY commands will be dynamically added by the setup.sh script

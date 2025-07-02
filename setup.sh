@@ -66,7 +66,7 @@ if [ "$ANY_NVML_ENERGY_FOUND" = false ]; then
 fi
 
 VARIORUM_DIR="data/variorum"
-VARIORUM_FILES=("variorum_relative.csv" "variorum_absolute.csv" "variorum_gpus.csv" "variorum_kernels.csv" "variorum_stats.csv")
+VARIORUM_FILES=("variorum_relative.csv" "variorum_absolute.csv" "variorum_gpus.csv" "variorum_kernels.csv" "variorum_stats.csv" "variorum_regions.csv")
 ANY_VARIORUM_FOUND=false
 for f in "${VARIORUM_FILES[@]}"; do
   if [ -f "$VARIORUM_DIR/$f" ]; then

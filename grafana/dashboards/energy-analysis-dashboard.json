@@ -378,9 +378,10 @@
       "pluginVersion": "12.0.2",
       "targets": [
         {
-          "editorMode": "builder",
+          "editorMode": "code",
           "format": "table",
-          "rawSql": "SELECT name, duration_ms FROM variorum_kernels LIMIT 50 ",
+          "rawQuery": true,
+          "rawSql": "SELECT name, (end_time_ms - start_time_ms) AS \"duration_ms\" FROM variorum_regions",
           "refId": "A",
           "sql": {
             "columns": [
@@ -416,7 +417,7 @@
           "table": "variorum_kernels"
         }
       ],
-      "title": "Kernel Timing Pie Chart",
+      "title": "Region Timing Pie Chart",
       "type": "piechart"
     },
     {
@@ -754,8 +755,8 @@
         ]
       },
       "gridPos": {
-        "h": 16,
-        "w": 9,
+        "h": 10,
+        "w": 6,
         "x": 15,
         "y": 38
       },
@@ -860,8 +861,145 @@
       },
       "id": 20,
       "panels": [],
-      "title": "Data Using NVML Profiler (Energy Variant) (to be Deprecated)",
+      "title": "Data Using NVML Profiler (Energy Variant) (WIP)",
       "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "bepxmpopbv668b"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 50,
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "pointShape": "circle",
+            "pointSize": {
+              "fixed": 5
+            },
+            "pointStrokeWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "show": "points"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "time_relative_ms"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "energy_joules"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "joule"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 16,
+        "w": 15,
+        "x": 0,
+        "y": 55
+      },
+      "id": 21,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "mapping": "auto",
+        "series": [
+          {}
+        ],
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "editorMode": "builder",
+          "format": "table",
+          "rawSql": "SELECT time_relative_ms, energy_joules FROM nvml_energy_relative ",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [
+                  {
+                    "name": "time_relative_ms",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              },
+              {
+                "parameters": [
+                  {
+                    "name": "energy_joules",
+                    "type": "functionParameter"
+                  }
+                ],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": null
+          },
+          "table": "nvml_energy_relative"
+        }
+      ],
+      "title": "Energy over Time",
+      "type": "xychart"
     },
     {
       "datasource": {
@@ -896,7 +1034,7 @@
       "gridPos": {
         "h": 8,
         "w": 7,
-        "x": 0,
+        "x": 15,
         "y": 55
       },
       "id": 19,
@@ -944,7 +1082,7 @@
           "table": "nvml_energy_stats"
         }
       ],
-      "title": "New panel",
+      "title": "Statistics Table",
       "type": "table"
     }
   ],
@@ -966,5 +1104,5 @@
   "timezone": "browser",
   "title": "Energy Analysis Dashboard",
   "uid": "energy-analysis-main",
-  "version": 3
+  "version": 6
 }
