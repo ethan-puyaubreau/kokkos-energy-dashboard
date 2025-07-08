@@ -16,10 +16,6 @@ fi
 echo "Preparing environment..."
 
 mkdir -p data
-rm -rf data/nvml_power
-mkdir -p data/nvml_power
-rm -rf data/nvml_energy
-mkdir -p data/nvml_energy
 rm -rf data/variorum
 mkdir -p data/variorum
 
@@ -30,8 +26,6 @@ python3 -m venv venv
 source venv/bin/activate
 pip install numpy pandas
 
-python3 scripts/nvml_energy/aggregate_nvml_energy.py
-python3 scripts/nvml/aggregate_nvml.py
 python3 scripts/variorum/aggregate_variorum.py
 
 echo "Delete venv"
@@ -39,31 +33,6 @@ deactivate
 rm -rf venv
 
 echo "Starting PostgreSQL database and Grafana via Docker Compose..."
-
-NVML_DIR="data/nvml_power"
-NVML_FILES=("nvml_relative.csv" "nvml_absolute.csv" "nvml_stats.csv")
-ANY_NVML_FOUND=false
-for f in "${NVML_FILES[@]}"; do
-  if [ -f "$NVML_DIR/$f" ]; then
-    ANY_NVML_FOUND=true
-  fi
-
-done
-if [ "$ANY_NVML_FOUND" = false ]; then
-  echo "WARNING: No NVML Power data found in $NVML_DIR." >&2
-fi
-
-NVML_ENERGY_DIR="data/nvml_energy"
-NVML_ENERGY_FILES=("nvml_energy_relative.csv" "nvml_energy_absolute.csv" "nvml_energy_stats.csv")
-ANY_NVML_ENERGY_FOUND=false
-for f in "${NVML_ENERGY_FILES[@]}"; do
-  if [ -f "$NVML_ENERGY_DIR/$f" ]; then
-    ANY_NVML_ENERGY_FOUND=true
-  fi
-done
-if [ "$ANY_NVML_ENERGY_FOUND" = false ]; then
-  echo "WARNING: No NVML Energy data found in $NVML_ENERGY_DIR." >&2
-fi
 
 VARIORUM_DIR="data/variorum"
 VARIORUM_FILES=("variorum_relative.csv" "variorum_absolute.csv" "variorum_gpus.csv" "variorum_kernels.csv" "variorum_stats.csv" "variorum_regions.csv")
@@ -78,22 +47,6 @@ if [ "$ANY_VARIORUM_FOUND" = false ]; then
 fi
 
 IMPORT_SQL=""
-for f in "${NVML_FILES[@]}"; do
-  if [ -f "$NVML_DIR/$f" ]; then
-    TABLE_NAME="${f%.csv}"
-    IMPORT_SQL+="\n\\COPY $TABLE_NAME FROM '/csv_data/nvml_power/$f' WITH (FORMAT csv, HEADER true);\n"
-  else
-    echo "WARNING: $f not found, import SQL ignored."
-  fi
-done
-for f in "${NVML_ENERGY_FILES[@]}"; do
-  if [ -f "$NVML_ENERGY_DIR/$f" ]; then
-    TABLE_NAME="${f%.csv}"
-    IMPORT_SQL+="\\COPY $TABLE_NAME FROM '/csv_data/nvml_energy/$f' WITH (FORMAT csv, HEADER true);\n"
-  else
-    echo "WARNING: $f not found, import SQL ignored."
-  fi
-done
 for f in "${VARIORUM_FILES[@]}"; do
   if [ -f "$VARIORUM_DIR/$f" ]; then
     TABLE_NAME="${f%.csv}"
@@ -113,20 +66,6 @@ else
   echo "WARNING: variorum_series.sql not found, SQL for variorum_series table not imported."
 fi
 
-NVML_SERIES_SQL="data/nvml_power/nvml_series.sql"
-if [ -f "$NVML_SERIES_SQL" ]; then
-  cat "$NVML_SERIES_SQL" >> init-db/init_tmp.sql
-else
-  echo "WARNING: nvml_series.sql not found, SQL for nvml_series table not imported."
-fi
-
-NVML_ENERGY_SERIES_SQL="data/nvml_energy/nvml_energy_series.sql"
-if [ -f "$NVML_ENERGY_SERIES_SQL" ]; then
-  cat "$NVML_ENERGY_SERIES_SQL" >> init-db/init_tmp.sql
-else
-  echo "WARNING: nvml_energy_series.sql not found, SQL for nvml_energy_series table not imported."
-fi
-
 docker compose up -d
 
 echo ""
@@ -143,7 +82,7 @@ echo "    Username  : admin"
 echo "    Password  : admin"
 echo ""
 echo "Your 'Energy Analysis Dashboard' is automatically"
-echo "available and pre-configured with your data!"
+echo "available and pre-configured with your Variorum data!"
 echo ""
 echo "PostgreSQL Database:"
 echo "    Host      : localhost:5432"

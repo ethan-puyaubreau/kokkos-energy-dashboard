@@ -1,7 +1,7 @@
 # Energy Analysis Dashboard for Energy Consumption Kokkos Tool
 Author: Ethan Puyaubreau
 
-Complete energy analysis environment with Grafana and PostgreSQL, ready to use with pre-configured dashboards.
+Complete energy analysis environment with Grafana and PostgreSQL, ready to use with pre-configured dashboards using Variorum profiling tool.
 
 ## Quick Start
 
@@ -9,6 +9,7 @@ Complete energy analysis environment with Grafana and PostgreSQL, ready to use w
 - Docker and Docker Compose installed
 - Your energy analysis output CSV files or Kokkos tool ready for benchmarking (see `input/generic_script.sh` for an boilerplate script for easy benchmarking and sorting of results)
 - Python (to allow for aggregation of data for the dashboard)
+- Variorum library installed and configured
 
 ### Setup
 1. Clone the repository:
@@ -17,36 +18,30 @@ Complete energy analysis environment with Grafana and PostgreSQL, ready to use w
     cd kokkos-energy-dashboard
     ```
 2. Optional (if you want to use the provided script) (Measure and Input):
-   - Modify `input/generic_script.sh` to set your Kokkos program command and paths to NVML and Variorum libraries.
+   - Modify `input/generic_script.sh` to set your Kokkos program command and path to Variorum library.
    - Run the script to generate energy data:
     ```bash
     ./input/generic_script.sh
     ```
 
-If you already have the output files, ensure they are placed in the `input/` in each dedicated folder:
+If you already have the output files, ensure they are placed in the `input/variorum/` folder:
 
 #### 2. (bis) Manually Adding Your Measurement Results
 
 If you want to manually add your own measurement CSV files:
 
 ##### **Place your CSV files in the correct folder**  
-   - Copy your files into the appropriate `input/` subfolder:
-     - `input/nvml_power/` for NVML Power measurements
-     - `input/nvml_energy/` for NVML Energy measurements
-     - `input/variorum/` for Variorum measurements
-   - Each batch of results can have its own subfolders (e.g., `energy_bench_nvml_power_1/`).
+   - Copy your files into the `input/variorum/` subfolder
+   - Each batch of results can have its own subfolders (e.g., `energy_bench_variorum_power_1/`).
 
 ##### **File naming**  
-   - The aggregation scripts look for files with specific suffixes, for example:
-     - `*-nvml-power-relative.csv`
-     - `*-nvml-power.csv`
-     - `*-nvml-power.dat`
+   - The aggregation scripts look for files with specific suffixes:
      - `*-variorum-power-relative.csv`
      - `*-variorum-power.csv`
      - `*-variorum-power-gpus.csv`
      - `*-variorum-power-kernels.csv`
      - `*-variorum-power-regions.csv`
-   - For Variorum, the regions file must end with `-variorum-power-regions.csv`.
+   - The regions file must end with `-variorum-power-regions.csv`.
 
 > Note: The Kokkos tool is expected to generate these files in the specified format so you would not need to manually rename them.
 
@@ -82,7 +77,7 @@ The "Energy Analysis Dashboard" is automatically available with some charts and 
 
 
 ### Interactive dashboard with Grafana
-- Multiple complementary visualizations
+- Multiple complementary visualizations for Variorum energy measurements
 - Energy performance metrics in a modern and intuitive interface
 
 ## Stop and Clean Environment

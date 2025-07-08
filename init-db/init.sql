@@ -1,39 +1,5 @@
 -- init-db/init.sql
 
--- Tables for NVML Tool (Power variant)
-CREATE TABLE IF NOT EXISTS nvml_relative (
-    time_relative_ms DECIMAL(12,3) NOT NULL,
-    power_watts DECIMAL(12,6) NOT NULL,
-    energy_relative_joules DECIMAL(18,9) NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS nvml_absolute (
-    timestamp_system_epoch_ms DECIMAL(18,3) NOT NULL,
-    nvml_power_watts DECIMAL(12,6) NOT NULL,
-    nvml_integrated_energy_joules DECIMAL(18,9) NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS nvml_stats (
-    stat_name TEXT NOT NULL,
-    value TEXT NOT NULL
-);
-
--- NVML ENERGY TABLES
-CREATE TABLE IF NOT EXISTS nvml_energy_relative (
-    time_relative_ms DECIMAL(12,3) NOT NULL,
-    energy_joules DECIMAL(18,9) NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS nvml_energy_absolute (
-    timestamp_system_epoch_ms DECIMAL(18,3) NOT NULL,
-    nvml_energy_joules DECIMAL(18,9) NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS nvml_energy_stats (
-    stat_name TEXT NOT NULL,
-    value TEXT NOT NULL
-);
-
 -- VARIORUM TABLES
 CREATE TABLE IF NOT EXISTS variorum_relative (
     time_relative_ms DECIMAL(12,3) NOT NULL,
@@ -74,22 +40,22 @@ CREATE TABLE IF NOT EXISTS variorum_regions (
     end_time_ms DECIMAL(18,3) NOT NULL
 );
 
--- NVML POWER REGIONS TABLE
-DROP TABLE IF EXISTS nvml_power_regions;
-CREATE TABLE IF NOT EXISTS nvml_power_regions (
-    name TEXT NOT NULL,
-    start_time_ns DECIMAL(20,0) NOT NULL,
-    end_time_ns DECIMAL(20,0) NOT NULL,
-    duration_ns DECIMAL(20,0) NOT NULL
-);
-
--- NVML ENERGY REGIONS TABLE
-DROP TABLE IF EXISTS nvml_energy_regions;
-CREATE TABLE IF NOT EXISTS nvml_energy_regions (
-    name TEXT NOT NULL,
-    start_time_ns DECIMAL(20,0) NOT NULL,
-    end_time_ns DECIMAL(20,0) NOT NULL,
-    duration_ns DECIMAL(20,0) NOT NULL
-);
-
 -- COPY commands will be dynamically added by the setup.sh script
+
+-- Function to select non-zero data from variorum_series (fallback if not created by aggregation script)
+CREATE OR REPLACE FUNCTION select_variorum_nonzero()
+RETURNS TABLE (
+    time_ns BIGINT,
+    power_data TEXT
+) AS $$
+BEGIN
+    -- This is a fallback function in case the series table is not created
+    -- The actual function will be replaced by the aggregation script if variorum_series.sql is generated
+    RETURN QUERY SELECT 
+        CAST(v.timestamp_ms * 1000000 AS BIGINT) as time_ns,
+        CAST(v.power_watts AS TEXT) as power_data
+    FROM variorum_gpus v
+    WHERE v.power_watts > 0
+    ORDER BY v.timestamp_ms;
+END;
+$$ LANGUAGE plpgsql;
